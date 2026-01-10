@@ -3,106 +3,94 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>PDN_JEU – Lecteur (Lite)</title>
+  <title>Lecteur PDN (lite)</title>
   <style>
-    html,body{margin:0;height:100%;background:#111;overflow:hidden}
-    iframe{width:100%;height:100%;border:0;display:block;background:#111}
+    html,body{height:100%;margin:0;font-family:system-ui,Segoe UI,Roboto,Arial}
+    #wrap{height:100%;display:flex;flex-direction:column}
+    #board{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:#111;color:#fff}
+    #bar{display:flex;gap:.5rem;align-items:center;justify-content:center;padding:.5rem;background:#f3efe6;border-top:1px solid #d8cfbf}
+    button{padding:.4rem .7rem;border:1px solid #cdbfa9;background:#fff;border-radius:.4rem;cursor:pointer}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    #msg{padding:.5rem .75rem;background:#fff3cd;border-top:1px solid #ffe69c;color:#664d03;display:none}
+    .mono{font-family:ui-monospace,Consolas,monospace}
   </style>
 </head>
 <body>
-  <iframe id="f" src="lecteur-pdn.html?lite=1" title="Lecteur PDN Lite"></iframe>
+<div id="wrap">
+  <div id="board">
+    <div id="loading" class="mono">Chargement du PDN…</div>
+  </div>
 
-  <script>
-    const frame = document.getElementById("f");
+  <div id="bar">
+    <button id="prev">⟵</button>
+    <button id="play">▶︎</button>
+    <button id="next">⟶</button>
+  </div>
 
-    const qp = (k) => new URL(location.href).searchParams.get(k) || "";
-    const resolveURL = (u) => new URL(u, location.href).toString();
+  <div id="msg"></div>
+</div>
 
-    function hideNonEssential(doc){
-      // cache zones texte + input fichier + éléments “import/texte”
-      doc.querySelectorAll("textarea, input[type=file]").forEach(el=>{
-        const box = el.closest("section, aside, div") || el;
-        box.style.display = "none";
-      });
-      doc.querySelectorAll("button,a,small,div,p,li,label").forEach(el=>{
-        const t=(el.textContent||"").toLowerCase();
-        if(
-          t.includes("pdn brut") ||
-          t.includes("coller") ||
-          t.includes("texte") && t.includes("pdn") ||
-          t.includes("exemple") ||
-          t.includes("import") ||
-          t.includes("fichier") && t.includes("pdn")
-        ){
-          el.style.display="none";
-        }
-      });
+<script>
+(() => {
+  const msg = document.getElementById('msg');
+  const loading = document.getElementById('loading');
 
-      // si layout en 2 colonnes, forcer 1 colonne (heuristique)
-      doc.querySelectorAll("*").forEach(el=>{
-        const cs = doc.defaultView.getComputedStyle(el);
-        if(cs && cs.display==="grid"){
-          const cols=(cs.gridTemplateColumns||"").trim();
-          if(cols.split(" ").length>=2) el.style.gridTemplateColumns="1fr";
-        }
-      });
+  function showError(text){
+    loading.textContent = '';
+    msg.style.display = 'block';
+    msg.textContent = text;
+  }
+
+  // Récupère ?pdn=...
+  const params = new URLSearchParams(location.search);
+  const pdnParam = params.get('pdn');
+
+  if (!pdnParam) {
+    showError('Paramètre manquant : ajoute ?pdn=URL_OU_CHEMIN_DU_FICHIER.pdn');
+    return;
+  }
+
+  // Résout proprement :
+  // - si c’est une URL http(s) => on garde
+  // - si c’est un chemin relatif => on le résout par rapport à ce lecteur
+  let pdnUrl;
+  try {
+    if (/^https?:\/\//i.test(pdnParam)) {
+      pdnUrl = pdnParam;
+    } else {
+      // ex: /PDN/xxx.pdn ou PDN/xxx.pdn
+      pdnUrl = new URL(pdnParam, location.href).href;
     }
+  } catch (e) {
+    showError('URL PDN invalide : ' + pdnParam);
+    return;
+  }
 
-    async function injectPDNIntoFull(doc, pdnText){
-      const w = frame.contentWindow;
-
-      // 1) meilleur cas : la page full expose une fonction
-      if (w && typeof w.loadPDNText === "function") {
-        w.loadPDNText(pdnText);
-        return true;
+  // Charge le PDN
+  fetch(pdnUrl, { cache: 'no-store' })
+    .then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    })
+    .then(text => {
+      if (!text || !text.includes('[Event')) {
+        throw new Error('Contenu PDN inattendu (le fichier ne ressemble pas à un PDN).');
       }
+      loading.textContent = '';
 
-      // 2) sinon : on remplit un textarea et on clique un bouton “charger”
-      const ta = doc.querySelector("textarea");
-      if(ta){
-        ta.value = pdnText;
-        ta.dispatchEvent(new Event("input", {bubbles:true}));
-        ta.dispatchEvent(new Event("change", {bubbles:true}));
-      }
+      // ICI : branche ton moteur d’animation existant
+      // Si ton projet PDN_JEU expose déjà une fonction globale, appelle-la ici.
+      // Exemple (à adapter selon ton code réel) :
+      // window.PDN_JEU.init({ containerId:'board', prevId:'prev', nextId:'next', playId:'play', pdnText:text });
 
-      // clic sur un bouton qui contient "charger"
-      const btn = [...doc.querySelectorAll("button,a")].find(el=>{
-        const t=(el.textContent||"").toLowerCase();
-        return t.includes("charger") || (t.includes("load") && t.includes("pdn"));
-      });
-      if(btn){ btn.click(); return true; }
-
-      return false;
-    }
-
-    async function autoload(){
-      const pdnParam = qp("pdn");
-      if(!pdnParam) return;
-
-      const pdnURL = resolveURL(pdnParam);
-      const r = await fetch(pdnURL, {cache:"no-store"});
-      if(!r.ok) throw new Error("Chargement PDN impossible: HTTP "+r.status);
-      const pdnText = await r.text();
-
-      const doc = frame.contentDocument;
-      if(!doc) return;
-
-      // on masque d’abord, puis on injecte
-      hideNonEssential(doc);
-      await injectPDNIntoFull(doc, pdnText);
-
-      // re-masquage (certains éléments apparaissent après)
-      setTimeout(()=>{ try{ hideNonEssential(frame.contentDocument); }catch(e){} }, 400);
-      setTimeout(()=>{ try{ hideNonEssential(frame.contentDocument); }catch(e){} }, 1200);
-    }
-
-    frame.addEventListener("load", ()=>{
-      try{
-        const doc = frame.contentDocument;
-        if(doc) hideNonEssential(doc);
-      }catch(e){}
-      autoload().catch(console.error);
+      // Placeholder visuel minimal si tu n’as pas encore branché l’init :
+      const board = document.getElementById('board');
+      board.innerHTML = '<div class="mono">PDN chargé ✅ (' + text.length + ' caractères)<br>Branche ici l’init du lecteur.</div>';
+    })
+    .catch(err => {
+      showError('Impossible de charger le PDN : ' + pdnUrl + ' — ' + err.message);
     });
-  </script>
+})();
+</script>
 </body>
 </html>
