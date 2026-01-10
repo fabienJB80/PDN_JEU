@@ -3,92 +3,97 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Lecteur PDN (lite)</title>
+  <title>Lecteur PDN (lite) - diagnostic</title>
   <style>
     html,body{height:100%;margin:0;font-family:system-ui,Segoe UI,Roboto,Arial}
-    #wrap{height:100%;display:flex;flex-direction:column}
-    #board{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:#111;color:#fff}
-    #bar{display:flex;gap:.5rem;align-items:center;justify-content:center;padding:.5rem;background:#f3efe6;border-top:1px solid #d8cfbf}
-    button{padding:.4rem .7rem;border:1px solid #cdbfa9;background:#fff;border-radius:.4rem;cursor:pointer}
-    button:disabled{opacity:.5;cursor:not-allowed}
-    #msg{padding:.5rem .75rem;background:#fff3cd;border-top:1px solid #ffe69c;color:#664d03;display:none}
-    .mono{font-family:ui-monospace,Consolas,monospace}
+    .wrap{min-height:100%;display:flex;flex-direction:column}
+    .top{padding:10px 12px;background:#f3efe6;border-bottom:1px solid #d8cfbf}
+    .top .label{font-weight:700;margin-right:.5rem}
+    .mono{font-family:ui-monospace,Consolas,monospace;font-size:13px;word-break:break-all}
+    .main{flex:1;min-height:0;display:flex;flex-direction:column;background:#111;color:#fff}
+    .status{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.15)}
+    pre{margin:0;padding:10px 12px;overflow:auto;white-space:pre-wrap}
+    .ok{color:#8ef58e}
+    .err{color:#ffb3b3}
   </style>
 </head>
 <body>
-<div id="wrap">
-  <div id="board">
-    <div id="loading" class="mono">Chargement du PDN…</div>
+<div class="wrap">
+  <div class="top">
+    <span class="label">PDN:</span>
+    <span id="pdnUrl" class="mono"></span>
   </div>
 
-  <div id="bar">
-    <button id="prev">⟵</button>
-    <button id="play">▶︎</button>
-    <button id="next">⟶</button>
+  <div class="main">
+    <div id="status" class="status mono">Chargement…</div>
+    <pre id="preview" class="mono"></pre>
   </div>
-
-  <div id="msg"></div>
 </div>
 
 <script>
 (() => {
-  const msg = document.getElementById('msg');
-  const loading = document.getElementById('loading');
+  const elUrl = document.getElementById('pdnUrl');
+  const elStatus = document.getElementById('status');
+  const elPreview = document.getElementById('preview');
 
-  function showError(text){
-    loading.textContent = '';
-    msg.style.display = 'block';
-    msg.textContent = text;
+  function setStatus(text, cls){
+    elStatus.textContent = text;
+    elStatus.className = 'status mono ' + (cls || '');
   }
 
-  // Récupère ?pdn=...
+  // Affiche toutes les erreurs JS (sinon écran noir)
+  window.addEventListener('error', (e) => {
+    setStatus('ERREUR JS: ' + (e.message || e.type), 'err');
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    setStatus('PROMISE REJECTED: ' + (e.reason?.message || e.reason), 'err');
+  });
+
   const params = new URLSearchParams(location.search);
   const pdnParam = params.get('pdn');
 
   if (!pdnParam) {
-    showError('Paramètre manquant : ajoute ?pdn=URL_OU_CHEMIN_DU_FICHIER.pdn');
+    elUrl.textContent = '(manquant)';
+    setStatus('ERREUR: ajoute ?pdn=... (URL ou chemin du fichier)', 'err');
     return;
   }
 
-  // Résout proprement :
-  // - si c’est une URL http(s) => on garde
-  // - si c’est un chemin relatif => on le résout par rapport à ce lecteur
+  // Résolution robuste : URL absolue ou chemin relatif/absolu
   let pdnUrl;
   try {
     if (/^https?:\/\//i.test(pdnParam)) {
       pdnUrl = pdnParam;
     } else {
-      // ex: /PDN/xxx.pdn ou PDN/xxx.pdn
       pdnUrl = new URL(pdnParam, location.href).href;
     }
   } catch (e) {
-    showError('URL PDN invalide : ' + pdnParam);
+    elUrl.textContent = pdnParam;
+    setStatus('ERREUR: URL PDN invalide', 'err');
     return;
   }
 
-  // Charge le PDN
+  elUrl.textContent = pdnUrl;
+
   fetch(pdnUrl, { cache: 'no-store' })
     .then(r => {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + r.statusText);
       return r.text();
     })
     .then(text => {
-      if (!text || !text.includes('[Event')) {
-        throw new Error('Contenu PDN inattendu (le fichier ne ressemble pas à un PDN).');
-      }
-      loading.textContent = '';
+      const head = text.slice(0, 4000);
+      const looksLikePDN = head.includes('[Event') || head.includes('[FEN') || head.includes('[Site');
 
-      // ICI : branche ton moteur d’animation existant
-      // Si ton projet PDN_JEU expose déjà une fonction globale, appelle-la ici.
-      // Exemple (à adapter selon ton code réel) :
-      // window.PDN_JEU.init({ containerId:'board', prevId:'prev', nextId:'next', playId:'play', pdnText:text });
+      setStatus(
+        'OK ' + text.length + ' caractères' + (looksLikePDN ? ' (PDN détecté ✅)' : ' (contenu inattendu ⚠️)'),
+        looksLikePDN ? 'ok' : ''
+      );
 
-      // Placeholder visuel minimal si tu n’as pas encore branché l’init :
-      const board = document.getElementById('board');
-      board.innerHTML = '<div class="mono">PDN chargé ✅ (' + text.length + ' caractères)<br>Branche ici l’init du lecteur.</div>';
+      // aperçu (début du fichier)
+      elPreview.textContent = head;
     })
     .catch(err => {
-      showError('Impossible de charger le PDN : ' + pdnUrl + ' — ' + err.message);
+      setStatus('IMPOSSIBLE DE CHARGER: ' + err.message, 'err');
+      elPreview.textContent = '';
     });
 })();
 </script>
