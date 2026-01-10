@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PDN_JEU – Lecteur (Lite)</title>
+  <style>
+    html,body{margin:0;height:100%;background:#111;overflow:hidden}
+    iframe{width:100%;height:100%;border:0;display:block;background:#111}
+  </style>
+</head>
+<body>
+  <iframe id="f" src="lecteur-pdn.html?lite=1" title="Lecteur PDN Lite"></iframe>
+
+  <script>
+    const frame = document.getElementById("f");
+
+    const qp = (k) => new URL(location.href).searchParams.get(k) || "";
+    const resolveURL = (u) => new URL(u, location.href).toString();
+
+    function hideNonEssential(doc){
+      // cache zones texte + input fichier + éléments “import/texte”
+      doc.querySelectorAll("textarea, input[type=file]").forEach(el=>{
+        const box = el.closest("section, aside, div") || el;
+        box.style.display = "none";
+      });
+      doc.querySelectorAll("button,a,small,div,p,li,label").forEach(el=>{
+        const t=(el.textContent||"").toLowerCase();
+        if(
+          t.includes("pdn brut") ||
+          t.includes("coller") ||
+          t.includes("texte") && t.includes("pdn") ||
+          t.includes("exemple") ||
+          t.includes("import") ||
+          t.includes("fichier") && t.includes("pdn")
+        ){
+          el.style.display="none";
+        }
+      });
+
+      // si layout en 2 colonnes, forcer 1 colonne (heuristique)
+      doc.querySelectorAll("*").forEach(el=>{
+        const cs = doc.defaultView.getComputedStyle(el);
+        if(cs && cs.display==="grid"){
+          const cols=(cs.gridTemplateColumns||"").trim();
+          if(cols.split(" ").length>=2) el.style.gridTemplateColumns="1fr";
+        }
+      });
+    }
+
+    async function injectPDNIntoFull(doc, pdnText){
+      const w = frame.contentWindow;
+
+      // 1) meilleur cas : la page full expose une fonction
+      if (w && typeof w.loadPDNText === "function") {
+        w.loadPDNText(pdnText);
+        return true;
+      }
+
+      // 2) sinon : on remplit un textarea et on clique un bouton “charger”
+      const ta = doc.querySelector("textarea");
+      if(ta){
+        ta.value = pdnText;
+        ta.dispatchEvent(new Event("input", {bubbles:true}));
+        ta.dispatchEvent(new Event("change", {bubbles:true}));
+      }
+
+      // clic sur un bouton qui contient "charger"
+      const btn = [...doc.querySelectorAll("button,a")].find(el=>{
+        const t=(el.textContent||"").toLowerCase();
+        return t.includes("charger") || (t.includes("load") && t.includes("pdn"));
+      });
+      if(btn){ btn.click(); return true; }
+
+      return false;
+    }
+
+    async function autoload(){
+      const pdnParam = qp("pdn");
+      if(!pdnParam) return;
+
+      const pdnURL = resolveURL(pdnParam);
+      const r = await fetch(pdnURL, {cache:"no-store"});
+      if(!r.ok) throw new Error("Chargement PDN impossible: HTTP "+r.status);
+      const pdnText = await r.text();
+
+      const doc = frame.contentDocument;
+      if(!doc) return;
+
+      // on masque d’abord, puis on injecte
+      hideNonEssential(doc);
+      await injectPDNIntoFull(doc, pdnText);
+
+      // re-masquage (certains éléments apparaissent après)
+      setTimeout(()=>{ try{ hideNonEssential(frame.contentDocument); }catch(e){} }, 400);
+      setTimeout(()=>{ try{ hideNonEssential(frame.contentDocument); }catch(e){} }, 1200);
+    }
+
+    frame.addEventListener("load", ()=>{
+      try{
+        const doc = frame.contentDocument;
+        if(doc) hideNonEssential(doc);
+      }catch(e){}
+      autoload().catch(console.error);
+    });
+  </script>
+</body>
+</html>
