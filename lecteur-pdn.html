@@ -1,0 +1,946 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lecteur PDN – Damier animé (10×10) v9</title>
+  <style>
+    :root { --sq:46px; --light:#f3e6cf; --dark:#9a6b45; --bg:#0f0f10; --blackPiece:#243a5e; }
+    body{margin:0;font-family:system-ui,Arial;background:var(--bg);color:#eee;padding:16px}
+    .wrap{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+    .panel{width:min(560px,100%)}
+    .topbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .badge{display:inline-block;padding:2px 8px;border:1px solid #444;border-radius:999px;font-size:12px;color:#ddd}
+    a.btn,button,select,input{padding:8px 10px;border-radius:10px;border:1px solid #444;background:#151515;color:#eee;text-decoration:none}
+    button{cursor:pointer} button:disabled{opacity:.45;cursor:not-allowed}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .board{display:grid;grid-template-columns:repeat(10,var(--sq));grid-template-rows:repeat(10,var(--sq));
+      border:2px solid #444;width:calc(10*var(--sq));background:#222;border-radius:14px;overflow:hidden}
+    .sq{width:var(--sq);height:var(--sq);display:flex;align-items:center;justify-content:center;user-select:none}
+    .light{background:var(--light)} .dark{background:var(--dark)}
+    .piece{width:calc(var(--sq)*.78);height:calc(var(--sq)*.78);border-radius:999px;position:relative;
+      box-shadow:0 6px 14px rgba(0,0,0,.35);border:2px solid rgba(255,255,255,.10)}
+    .w{background:#f7f2e8} .b{background:var(--blackPiece)}
+    .king::after{content:"♛";font-size:calc(var(--sq)*.36);color:rgba(255,215,0,.95);text-shadow:0 2px 6px rgba(0,0,0,.35);position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+    .hl{outline:3px solid #ffd54a;outline-offset:-3px}
+    .meta{font-size:12px;color:#cfcfcf;line-height:1.35;white-space:pre-wrap}
+    .hint{color:#b7b7b7;font-size:12px;line-height:1.35}
+    textarea{width:100%;min-height:220px;border-radius:12px;border:1px solid #444;background:#0e0e0e;color:#ddd;padding:10px}
+    .movesline{font-size:12px;color:#ddd;line-height:1.5}
+    .movesline span{cursor:pointer;padding:2px 4px;border-radius:6px}
+    .movesline span.active{background:#ffd54a;color:#000}
+    @media (max-width:560px){:root{--sq:34px}}
+  
+:root {
+  --case-claire: #efe7d8;   /* beige très doux */
+  --case-sombre: #c6a87a;   /* brun clair adouci */
+}
+
+/* Damier */
+.square.light { background: var(--case-claire); }
+.square.dark  { background: var(--case-sombre); }
+
+/* Pions */
+.piece.white {
+  background: #ffffff;
+  box-shadow:
+    0 2px 4px rgba(0,0,0,0.25),
+    inset 0 1px 0 rgba(255,255,255,0.9);
+}
+
+.piece.black {
+  background: #1b2f3f; /* bleu pétrole officiel */
+  box-shadow:
+    0 2px 4px rgba(0,0,0,0.35),
+    inset 0 1px 0 rgba(255,255,255,0.12);
+}
+
+/* Dames */
+.piece.white.king::after {
+  content: "♕";
+  font-size: 22px;
+  font-weight: bold;
+  color: #c9a23f;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.4);
+}
+
+.piece.black.king::after {
+  content: "♛";
+  font-size: 22px;
+  font-weight: bold;
+  color: #e0e0e0;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.6);
+}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="panel">
+    <div class="topbar">
+      <span class="badge" id="titleBadge">Lecteur PDN</span>
+      <a class="btn" id="openPdnLink" href="#" target="_blank" rel="noreferrer noopener" style="display:none;">Ouvrir le PDN</a>
+    </div>
+
+    <div class="controls" style="margin-top:10px;">
+      <input type="file" id="file" accept=".pdn,.txt" />
+      <select id="gameSelect"></select>
+    </div>
+
+    <div class="controls" style="margin-top:10px;">
+      <button id="btnReset">↺ Début</button>
+      <button id="btnPrev">◀</button>
+      <button id="btnPlay">▶</button>
+      <button id="btnNext">▶︎▶</button>
+      <label style="display:flex;align-items:center;gap:6px;">
+        Vitesse <input id="speed" type="range" min="200" max="1500" step="50" value="650">
+      </label>
+    </div>
+
+    <div id="board" class="board" style="margin-top:10px;"></div>
+    <div class="meta" id="status" style="margin-top:8px;"></div>
+    <div class="meta" id="gameMeta" style="margin-top:6px;"></div>
+    <div class="hint" id="hint" style="margin-top:6px;"></div>
+
+    <div class="meta" style="margin-top:10px;">Notation :</div>
+    <div class="movesline" id="moveLine"></div>
+  </div>
+
+  <div class="panel">
+    <div class="meta" style="margin-bottom:8px;">PDN brut (optionnel) :</div>
+    <textarea id="pdnText" placeholder="Colle ici un PDN…"></textarea>
+    <div class="controls" style="margin-top:10px;">
+      <button id="btnLoadText">Charger depuis le texte</button>
+      <button id="btnSample">Charger un exemple</button>
+    </div>
+    <div class="hint" style="margin-top:10px;">
+      Paramètres d’URL : <code>?pdn=URL_DU_FICHIER_PDN</code> et <code>&title=TITRE</code>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===== Numérotation PDN 1..50 : 2 conventions rencontrées =====
+   Convention A (très courante) : case 1 en haut-gauche *clair* (cases jouables = (r+c)%2==1)
+   Convention B (aussi vue)     : case 1 en haut-gauche *foncé* (cases jouables = (r+c)%2==0)
+   => On auto-détecte au chargement en simulant quelques coups et on choisit la meilleure.
+*/
+let MAP_MODE = 'A'; // 'A' or 'B'
+
+function idxToRC_A(i){ i--; const r=Math.floor(i/5), p=i%5, c=(r%2===0)?(1+2*p):(2*p); return {r,c}; }
+function rcToIdx_A(r,c){ if(r<0||r>9||c<0||c>9) return null; if((r+c)%2===0) return null; return r*5 + (r%2? (c/2):((c-1)/2)) + 1; }
+
+function idxToRC_B(i){ i--; const r=Math.floor(i/5), p=i%5, c=(r%2===0)?(2*p):(1+2*p); return {r,c}; }
+function rcToIdx_B(r,c){ if(r<0||r>9||c<0||c>9) return null; if((r+c)%2===1) return null; return r*5 + (r%2? ((c-1)/2):(c/2)) + 1; }
+
+function idxToRC(i){ return (MAP_MODE==='A') ? idxToRC_A(i) : idxToRC_B(i); }
+function rcToIdx(r,c){ return (MAP_MODE==='A') ? rcToIdx_A(r,c) : rcToIdx_B(r,c); }
+
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+
+function initialState(){
+  const s={};
+  for(let i=1;i<=20;i++) s[i]={color:'b',king:false};
+  for(let i=31;i<=50;i++) s[i]={color:'w',king:false};
+  return s;
+}
+
+/* ===== Optional SetUp/FEN support (PDN) =====
+Common draughts FEN style: "W:W31,32,33,34,35,36,37,38,39,40:B1,2,3,4,5"
+Kings are prefixed with 'K' (e.g. WK12 or W12? both seen). We support: W:W...:B...
+*/
+function parseRangeList(part){
+  // part like "31,32,33-36,K40,K41"
+  const out=[];
+  if(!part) return out;
+  part.split(',').map(s=>s.trim()).filter(Boolean).forEach(tok=>{
+    let king=false;
+    tok = tok.replace(/^WK/i, 'K').replace(/^BK/i,'K'); // normalize
+    if(/^K/i.test(tok)){ king=true; tok=tok.replace(/^K/i,''); }
+    const m = tok.match(/^(\d+)(?:-(\d+))?$/);
+    if(!m) return;
+    const a = Number(m[1]), b = m[2]?Number(m[2]):null;
+    if(!b){ out.push({idx:a, king}); return; }
+    const step = a<=b ? 1 : -1;
+    for(let v=a; v!==b+step; v+=step) out.push({idx:v, king});
+  });
+  return out;
+}
+function stateFromFEN(fen){
+  // returns {state, sideToMove?}
+  const st={};
+  // normalize separators
+  const parts = fen.replace(/\s+/g,'').split(':');
+  if(parts.length < 2) return {state:null, side:null};
+  const side = parts[0].toUpperCase()==='W' ? 'w' : (parts[0].toUpperCase()==='B' ? 'b' : null);
+  let wPart='', bPart='';
+  for(const p of parts.slice(1)){
+    if(/^W/i.test(p)) wPart = p.replace(/^W/i,'');
+    else if(/^B/i.test(p)) bPart = p.replace(/^B/i,'');
+  }
+  parseRangeList(wPart).forEach(o=>{ st[o.idx]={color:'w', king:!!o.king}; });
+  parseRangeList(bPart).forEach(o=>{ st[o.idx]={color:'b', king:!!o.king}; });
+  return {state:st, side};
+}
+function stateFromTags(tags){
+  // Default initial position
+  const st = {};
+  for(let i=1;i<=20;i++) st[i]={color:'b', king:false};
+  for(let i=31;i<=50;i++) st[i]={color:'w', king:false};
+  START_SIDE = 'w';
+
+  const fenRaw = tags && (tags['FEN'] || tags['Fen'] || tags['fen']);
+  const setup = tags && (tags['SetUp'] || tags['Setup'] || tags['setup']);
+  if(!fenRaw || !(String(setup||'')==='1')) return st;
+
+  // FEN international (50 cases). Dialectes supportés :
+  // 1) Anglais: W=White(Blanc), B=Black(Noir)  ex: "W:W32,33:B13,19,23."
+  // 2) Français BN: B=Blanc, N=Noir          ex: "B:B32,33:N13,19,23."
+  //
+  // Dames: explicites
+  //  - Anglais "K" (King) : WK / BK
+  //  - Français "D" (Dame): WD / BD / ND
+  //
+  // IMPORTANT (compat Dam 2.2) :
+  // certains exports utilisent "BK..." (et parfois "WK...") pour la LISTE DES PIONS,
+  // et non pour les dames. Dans ce cas on ne doit PAS transformer tout en dames.
+  // Heuristique sûre :
+  //  - si on voit un marqueur de dame explicite avec 'D' (WD/BD/ND) -> on traite K comme "King" standard
+  //  - sinon, si on est en dialecte W/B et qu'on voit un segment "BK<digits>" mais aucun segment "B<digits>"
+  //    -> on considère "BK" comme "B" (pions noirs), et idem pour "WK" comme "W" (pions blancs).
+  const txt = String(fenRaw).trim().replace(/^"+|"+$/g,'').replace(/\.+$/,''); // remove quotes + trailing dots
+  const parts = txt.split(':').map(s=>s.trim()).filter(Boolean);
+  if(parts.length < 2) return st;
+
+  const stmToken = parts[0].trim().toUpperCase(); // "W" or "B" or "N"
+  // Strict BN detection
+  let dialect = 'WB';
+  if(stmToken === 'N') dialect='BN';
+  else {
+    for(let i=1;i<parts.length;i++){
+      const seg = parts[i].replace(/\s+/g,'').toUpperCase();
+      if(seg.startsWith('N') || seg.startsWith('NK') || seg.startsWith('ND')) { dialect='BN'; break; }
+    }
+  }
+
+  let BL='W', NO='B';
+  if(dialect==='BN'){ BL='B'; NO='N'; }
+
+  if(stmToken === NO) START_SIDE='b'; else START_SIDE='w';
+
+  // Clear
+  for(const k of Object.keys(st)) delete st[k];
+
+  function addPiece(idx, color, king){
+    const n = Number(idx);
+    if(!(n>=1 && n<=50)) return;
+    st[n] = { color, king: !!king };
+  }
+  function parseList(listStr, color, king){
+    const s=listStr.trim(); if(!s) return;
+    for(const item of s.split(',').map(x=>x.trim()).filter(Boolean)){
+      const m=item.match(/^(\d+)\s*-\s*(\d+)$/);
+      if(m){
+        const a=Number(m[1]), b=Number(m[2]);
+        const lo=Math.min(a,b), hi=Math.max(a,b);
+        for(let v=lo; v<=hi; v++) addPiece(v,color,king);
+      }else addPiece(item,color,king);
+    }
+  }
+
+  // Pre-scan segments for Dam2.2 quirk and explicit 'D' kings
+  let hasExplicitD = false;
+  let hasBMen = false, hasWMen = false;
+  for(let i=1;i<parts.length;i++){
+    const seg=parts[i].replace(/\s+/g,'').toUpperCase();
+    if(seg.startsWith('WD')||seg.startsWith('BD')||seg.startsWith('ND')) hasExplicitD=true;
+    if(dialect==='WB'){
+      if(seg.startsWith('B') && !seg.startsWith('BK') && !seg.startsWith('BD')) hasBMen=true;
+      if(seg.startsWith('W') && !seg.startsWith('WK') && !seg.startsWith('WD')) hasWMen=true;
+    }
+  }
+
+  for(let i=1;i<parts.length;i++){
+    const segRaw = parts[i].replace(/\s+/g,'');
+    if(!segRaw) continue;
+    const seg = segRaw.toUpperCase();
+
+    if(dialect==='WB'){
+      if(seg.startsWith('WD')) { parseList(segRaw.slice(2), 'w', true); continue; }
+      if(seg.startsWith('BD')) { parseList(segRaw.slice(2), 'b', true); continue; }
+
+      // Dam2.2 quirk handling when no explicit D-kings:
+      // Non-standard export observed: "BK4,8,19,..." can mean: king at 4, men at 8,19,... (prefix applies only to first).
+      // We apply this ONLY when no normal men-list exists for that color (no "B..." segment for black, no "W..." for white).
+      if(!hasExplicitD){
+        if(seg.startsWith('BK') && !hasBMen){
+          const rest = segRaw.slice(2);
+          const partsList = rest.split(',').map(s=>s.trim()).filter(Boolean);
+          if(partsList.length>0){
+            addPiece(partsList[0], 'b', true);
+            for(let j=1;j<partsList.length;j++) addPiece(partsList[j], 'b', false);
+          }
+          continue;
+        }
+        if(seg.startsWith('WK') && !hasWMen){
+          const rest = segRaw.slice(2);
+          const partsList = rest.split(',').map(s=>s.trim()).filter(Boolean);
+          if(partsList.length>0){
+            addPiece(partsList[0], 'w', true);
+            for(let j=1;j<partsList.length;j++) addPiece(partsList[j], 'w', false);
+          }
+          continue;
+        }
+      }
+
+      // Standard King marker K
+      if(seg.startsWith('WK')) { parseList(segRaw.slice(2), 'w', true); continue; }
+      if(seg.startsWith('BK')) { parseList(segRaw.slice(2), 'b', true); continue; }
+
+      // Men lists
+      if(seg.startsWith('W')) { parseList(segRaw.slice(1), 'w', false); continue; }
+      if(seg.startsWith('B')) { parseList(segRaw.slice(1), 'b', false); continue; }
+      continue;
+    }
+
+    // dialect BN
+    if(seg.startsWith('BD')) { parseList(segRaw.slice(2), 'w', true); continue; } // Blanc dames
+    if(seg.startsWith('ND')) { parseList(segRaw.slice(2), 'b', true); continue; } // Noir dames
+    if(seg.startsWith('BK')) { parseList(segRaw.slice(2), 'w', true); continue; } // Blanc kings (K)
+    if(seg.startsWith('NK')) { parseList(segRaw.slice(2), 'b', true); continue; } // Noir kings (K)
+    if(seg.startsWith('B')) { parseList(segRaw.slice(1), 'w', false); continue; } // Blanc pions
+    if(seg.startsWith('N')) { parseList(segRaw.slice(1), 'b', false); continue; } // Noir pions
+  }
+
+  return st;
+}
+
+/* UI board */
+const boardEl=document.getElementById('board');
+let squares=[];
+(function build(){
+  for(let r=0;r<10;r++)for(let c=0;c<10;c++){
+    const d=document.createElement('div');
+    d.className='sq '+(((r+c)%2)?'dark':'light');
+    boardEl.appendChild(d); squares.push(d);
+  }
+})();
+
+function clearHighlights(){ squares.forEach(s=>s.classList.remove('hl')); }
+function setHighlight(idx){ const {r,c}=idxToRC(idx); squares[r*10+c].classList.add('hl'); }
+function render(state){
+  squares.forEach(s=>s.innerHTML='');
+  for(const [k,p] of Object.entries(state)){
+    const idx=Number(k); const {r,c}=idxToRC(idx);
+    const el=document.createElement('div');
+    el.className='piece '+(p.color==='w'?'w':'b')+(p.king?' king':'');
+    squares[r*10+c].appendChild(el);
+  }
+}
+
+/* PDN parsing */
+function parsePDNGames(pdn){
+  const games=[];
+  const lines=pdn.replace(/\r/g,'').split('\n');
+  let cur={tags:{},movesText:''};
+
+  function pushCur(){
+    if(Object.keys(cur.tags).length>0 || cur.movesText){
+      games.push(cur);
+    }
+    cur={tags:{},movesText:''};
+  }
+
+  for(const raw of lines){
+    const line=raw.trim();
+    if(!line) continue;
+
+    const tagMatch=line.match(/^\[(\w+)\s+\"([^\"]*)\"\]\s*$/);
+    if(tagMatch){
+      const key = tagMatch[1];
+      const val = tagMatch[2];
+
+      // New game boundary: a new [Event "..."] starts a new game even if previous game had no moves yet.
+      if(key.toLowerCase()==='event' && (Object.keys(cur.tags).length>0 || cur.movesText)){
+        pushCur();
+      }
+      // If tags appear after some moves without an Event, treat as new game anyway.
+      if(cur.movesText && Object.keys(cur.tags).length>0 && key.toLowerCase()!=='event'){
+        pushCur();
+      }
+
+      cur.tags[key]=val;
+      continue;
+    }
+
+    if(line.startsWith(';')) continue;
+    cur.movesText += (cur.movesText?' ':'') + line;
+  }
+
+  pushCur();
+  return games;
+}
+
+/* FIX v9: remove move numbers robustly (no trailing word-boundary bug) */
+function extractMoveTokens(movesText){
+  let t = movesText || '';
+  t = t.replace(/\{[^}]*\}/g,' ');
+  t = t.replace(/\([^)]*\)/g,' ');
+  t = t.replace(/\d+\.(\.\.)?/g,' ');         // <-- FIX
+  t = t.replace(/\b(1-0|0-1|1\/2-1\/2|\*)\b/g,' ');
+  t = t.replace(/\s+/g,' ').trim();
+  return t ? t.split(' ').filter(Boolean) : [];
+}
+
+function parseMoveToken(token){
+  const cleaned = token.replace(/×/g,'x').replace(/X/g,'x').replace(/\s/g,'');
+  if(cleaned.includes('x')){
+    const parts = cleaned.split('x').map(Number).filter(Number.isFinite);
+    if(parts.length>=2) return {type:'capture', parts, token: cleaned};
+  } else if(cleaned.includes('-')){
+    const parts = cleaned.split('-').map(Number).filter(Number.isFinite);
+    if(parts.length===2) return {type:'move', from:parts[0], to:parts[1], token: cleaned};
+  }
+  return {type:'unknown', token: cleaned};
+}
+
+/* Capture engine (zig-zag) */
+function promoteIfNeeded(idx, piece){
+  const {r}=idxToRC(idx);
+  if(piece.color==='w' && r===0) piece.king=true;
+  if(piece.color==='b' && r===9) piece.king=true;
+}
+function manCaptureMoves(state, fromIdx, side, capturedSet){
+  const moves=[];
+  const {r,c}=idxToRC(fromIdx);
+  const dirs = side==='w' ? [[-1,-1],[-1,1]] : [[1,-1],[1,1]];
+  // In international draughts, men capture in all directions; use 4 dirs.
+  const allDirs = [[-1,-1],[-1,1],[1,-1],[1,1]];
+  for(const [dr,dc] of allDirs){
+    const r1=r+dr, c1=c+dc;
+    const r2=r+2*dr, c2=c+2*dc;
+    const mid = rcToIdx(r1,c1);
+    const to  = rcToIdx(r2,c2);
+    if(!mid || !to) continue;
+    const pMid = state[mid];
+    if(!pMid) continue;
+    if(pMid.color===side) continue;
+    if(capturedSet && capturedSet.has(mid)) continue; // cannot capture same piece twice; captured pieces block
+    if(state[to]) continue; // landing must be empty (captured pieces remain on board during the sequence)
+    moves.push({to, cap: mid});
+  }
+  return moves;
+}
+function kingCaptureMoves(state, fromIdx, side, capturedSet){
+  const moves=[];
+  const {r,c}=idxToRC(fromIdx);
+  const dirs=[[-1,-1],[-1,1],[1,-1],[1,1]];
+  for(const [dr,dc] of dirs){
+    let rr=r+dr, cc=c+dc;
+    // scan until we hit something
+    while(true){
+      const idx = rcToIdx(rr,cc);
+      if(!idx) break;
+      if(state[idx]){
+        const p = state[idx];
+        // Any captured piece blocks the ray; also cannot be captured again.
+        if(capturedSet && capturedSet.has(idx)) break;
+        if(p.color===side) break;
+        // opponent piece (not yet captured) found: squares beyond are landing squares until another piece encountered
+        let rr2=rr+dr, cc2=cc+dc;
+        while(true){
+          const idx2 = rcToIdx(rr2,cc2);
+          if(!idx2) break;
+          if(state[idx2]) break; // occupied (including previously captured pieces) blocks landing
+          moves.push({to: idx2, cap: idx});
+          rr2+=dr; cc2+=dc;
+        }
+        break; // only the first enemy piece in this direction can be captured
+      }
+      rr+=dr; cc+=dc;
+    }
+  }
+  return moves;
+}
+function findCaptureSequence(state, fromIdx, toIdx, piece){
+  const side = piece.color;
+
+  // Enumerate ALL capture sequences from fromIdx.
+  // Apply international priority in a pragmatic way:
+  // 1) max number of captures
+  // 2) max number of kings captured
+  // Then pick a sequence that ends at toIdx (as PDN requires).
+  // If none ends at toIdx under strict priority, relax within sequences ending at toIdx.
+
+  let bestGlobal = null;     // {caps, kingsCaps, end, removed}
+  let bestEndAt = null;      // best among sequences ending at toIdx (caps+kingsCaps)
+  let bestStrictEndAt = null;// best among strictly-optimal sequences that also end at toIdx
+
+  function countKingCaps(stBefore, removedList){
+    let n=0;
+    for(const idx of removedList){
+      const p = stBefore[idx];
+      if(p && p.king) n++;
+    }
+    return n;
+  }
+
+  // Memoization to avoid explosions: key = pos + '|' + remainingOppHash
+  const memo = new Set();
+
+  function oppHash(st){
+    // hash opponent pieces positions only (kings included)
+    const arr=[];
+    for(const [k,v] of Object.entries(st)){
+      if(v && v.color !== side) arr.push(k + (v.king?'K':''));
+    }
+    arr.sort();
+    return arr.join(',');
+  }
+
+  function better(a,b){
+    if(!b) return true;
+    if(a.caps !== b.caps) return a.caps > b.caps;
+    if(a.kingsCaps !== b.kingsCaps) return a.kingsCaps > b.kingsCaps;
+    // deterministic tie-break: lexicographic removed list
+    const as=a.removed.join('-'), bs=b.removed.join('-');
+    return as < bs;
+  }
+
+  function dfs(st, pos, removed, stBeforeThisMove){
+    const key = pos + '|' + oppHash(st);
+    if(memo.has(key)) return;
+    memo.add(key);
+
+    const next = piece.king ? kingCaptureMoves(st, pos, side) : manCaptureMoves(st, pos, side);
+    if(next.length === 0){
+      const caps = removed.length;
+      const kingsCaps = countKingCaps(stBeforeThisMove, removed);
+      const rec = {caps, kingsCaps, end: pos, removed: removed.slice()};
+      if(better(rec, bestGlobal)) bestGlobal = rec;
+      if(pos === toIdx && better(rec, bestEndAt)) bestEndAt = rec;
+      return;
+    }
+
+    for(const m of next){
+      const st2 = clone(st);
+      // Remove captured piece
+      delete st2[m.cap];
+      dfs(st2, m.to, removed.concat([m.cap]), stBeforeThisMove);
+    }
+  }
+
+  const stBefore = clone(state); // for king-capture counting
+  dfs(clone(state), fromIdx, [], stBefore);
+
+  if(!bestGlobal){
+    return {ok:false, reason:`Aucune rafle trouvée de ${fromIdx} à ${toIdx}`};
+  }
+
+  // Strict: sequences with same (caps,kingsCaps) as bestGlobal
+  // We didn't store all leafs, so approximate by checking bestEndAt vs bestGlobal.
+  // If bestEndAt matches bestGlobal priority, accept it as strict.
+  if(bestEndAt && bestEndAt.caps === bestGlobal.caps && bestEndAt.kingsCaps === bestGlobal.kingsCaps){
+    bestStrictEndAt = bestEndAt;
+  }
+
+  if(bestStrictEndAt) return {ok:true, seq: bestStrictEndAt};
+  if(bestEndAt) return {ok:true, seq: bestEndAt};
+
+  // If PDN end square doesn't match any sequence, fail loudly.
+  return {ok:false, reason:`Aucune rafle trouvée de ${fromIdx} à ${toIdx}`};
+}
+
+/* ===== Backtracking disambiguation for shorthand captures (A x B) =====
+   Many PDNs omit intermediate landing squares in multi-captures (especially kings).
+   If several capture paths are legal, we keep all tied-best outcomes and continue;
+   this prevents later "piece missing" errors caused by picking the wrong path early.
+*/
+function generateCaptureOutcomes(state, fromIdx, toIdx, piece){
+  const side = piece.color;
+
+  // "Coup turc" handling:
+  // - Captured pieces are NOT removed during the capture sequence; they stay on the board and may block rays.
+  // - A piece cannot be captured twice.
+  // We enumerate only TERMINAL sequences (no further capture available), then apply "max pieces captured".
+  const terminals = []; // {end, captured:Array<int>, caps:int}
+
+  function dfs(st, pos, capturedSet){
+    const next = piece.king ? kingCaptureMoves(st, pos, side, capturedSet) : manCaptureMoves(st, pos, side, capturedSet);
+    if(next.length === 0){
+      terminals.push({ end: pos, captured: Array.from(capturedSet), caps: capturedSet.size });
+      return;
+    }
+    for(const m of next){
+      const newSet = new Set(capturedSet);
+      newSet.add(m.cap);
+      dfs(st, m.to, newSet);
+    }
+  }
+
+  dfs(state, fromIdx, new Set());
+
+  if(terminals.length === 0) return [];
+
+  const maxCaps = Math.max(...terminals.map(t=>t.caps));
+  const best = terminals.filter(t=>t.caps === maxCaps && t.end === toIdx);
+  if(best.length === 0) return [];
+
+  const outcomes = [];
+  for(const t of best){
+    const st2 = clone(state);
+    for(const cap of t.captured){
+      if(st2[cap]) delete st2[cap]; // remove at END of the move only
+    }
+    outcomes.push({ removed: t.captured, state: st2 });
+  }
+  return outcomes;
+}
+
+/* Apply a move but allow multiple resulting states for shorthand captures */
+function applyMoveMulti(state, moveObj, sideToPlay){
+  const getPiece = (st,i)=>st[i];
+
+  if(moveObj.type==='unknown'){
+    return { ok:false, reason:`Token illisible: ${moveObj.token}`, results:[] };
+  }
+
+  if(moveObj.type==='move'){
+    const st = clone(state);
+    const p = st[moveObj.from];
+    if(!p) return { ok:false, reason:`Pas de pièce en ${moveObj.from}`, results:[] };
+    if(p.color!==sideToPlay) return { ok:false, reason:`Mauvaise couleur en ${moveObj.from}`, results:[] };
+    if(st[moveObj.to]) return { ok:false, reason:`Case ${moveObj.to} occupée`, results:[] };
+    delete st[moveObj.from];
+    st[moveObj.to]=p;
+    promoteIfNeeded(moveObj.to,p);
+    return { ok:true, reason:'', results:[{state:st, highlights:[moveObj.from, moveObj.to]}] };
+  }
+
+  if(moveObj.type==='capture'){
+    const parts = moveObj.parts;
+    const from = parts[0];
+    const p0 = state[from];
+    if(!p0) return { ok:false, reason:`Pas de pièce en ${from}`, results:[] };
+    if(p0.color!==sideToPlay) return { ok:false, reason:`Mauvaise couleur en ${from}`, results:[] };
+
+    // Multi-leg capture token (A x B x C ...) is deterministic by legs; each leg may still have ambiguity.
+    // We propagate outcomes across legs.
+    let frontier = [{ st: clone(state), cur: from, removedAll: [], highlightsBase: [from] }];
+    // Remove moving piece from its start in each state right away
+    for(const f of frontier){
+      delete f.st[from];
+    }
+
+    for(let i=1;i<parts.length;i++){
+      const nxt = parts[i];
+      const newFrontier = [];
+      for(const node of frontier){
+        if(node.st[nxt]) continue; // landing occupied invalid
+        const outcomes = generateCaptureOutcomes(node.st, node.cur, nxt, p0);
+        for(const out of outcomes){
+          const st2 = clone(out.state);
+          // keep moving piece "in hand", so don't place yet
+          newFrontier.push({
+            st: st2,
+            cur: nxt,
+            removedAll: node.removedAll.concat(out.removed),
+            highlightsBase: node.highlightsBase.slice(),
+          });
+        }
+      }
+      frontier = newFrontier;
+      if(frontier.length===0) return { ok:false, reason:`Aucune rafle trouvée de ${parts[i-1]} à ${nxt}`, results:[] };
+      // cap states to avoid explosion
+      if(frontier.length>2000) frontier = frontier.slice(0,2000);
+    }
+
+    // Place moving piece on final square for each frontier node
+    const results = [];
+    for(const node of frontier){
+      const st = clone(node.st);
+      const p = clone(p0);
+      st[node.cur] = p;
+      promoteIfNeeded(node.cur,p);
+      results.push({ state: st, highlights: [from, ...node.removedAll, node.cur] });
+    }
+    // Deduplicate by hashing pieces
+    const seen = new Set();
+    const dedup = [];
+    for(const r of results){
+      const key = Object.keys(r.state).sort((a,b)=>Number(a)-Number(b)).map(k=>k + (r.state[k].color==='w'?'w':'b') + (r.state[k].king?'K':'' )).join(',');
+      if(seen.has(key)) continue;
+      seen.add(key);
+      dedup.push(r);
+    }
+    return { ok:true, reason:'', results: dedup };
+  }
+
+  return { ok:false, reason:'Type inconnu', results:[] };
+}
+
+
+function applyMove(state, moveObj, sideToPlay){
+  const st=clone(state);
+  const getPiece=i=>st[i];
+  const setPiece=(i,p)=>{ if(p) st[i]=p; else delete st[i]; };
+
+  if(moveObj.type==='unknown') return {state:st, ok:false, reason:`Token illisible: ${moveObj.token}`, highlights:[]};
+
+  if(moveObj.type==='move'){
+    const p=getPiece(moveObj.from);
+    if(!p) return {state:st, ok:false, reason:`Pas de pièce en ${moveObj.from}`, highlights:[]};
+    if(p.color!==sideToPlay) return {state:st, ok:false, reason:`Mauvaise couleur en ${moveObj.from}`, highlights:[]};
+    if(getPiece(moveObj.to)) return {state:st, ok:false, reason:`Case ${moveObj.to} occupée`, highlights:[]};
+    setPiece(moveObj.from,null); setPiece(moveObj.to,p); promoteIfNeeded(moveObj.to,p);
+    return {state:st, ok:true, reason:'', highlights:[moveObj.from,moveObj.to]};
+  }
+
+  if(moveObj.type==='capture'){
+    const parts=moveObj.parts;
+    const from=parts[0];
+    const p=getPiece(from);
+    if(!p) return {state:st, ok:false, reason:`Pas de pièce en ${from}`, highlights:[]};
+    if(p.color!==sideToPlay) return {state:st, ok:false, reason:`Mauvaise couleur en ${from}`, highlights:[]};
+    setPiece(from,null);
+    let cur=from; const removedAll=[];
+    for(let i=1;i<parts.length;i++){
+      const nxt=parts[i];
+      if(getPiece(nxt)) return {state:st, ok:false, reason:`Case ${nxt} occupée`, highlights:[]};
+      const res=findCaptureSequence(st, cur, nxt, p);
+      if(!res.ok) return {state:st, ok:false, reason:res.reason, highlights:[]};
+      for(const cap of res.seq.removed){ if(st[cap]) delete st[cap]; }
+      removedAll.push(...res.seq.removed);
+      cur=nxt;
+    }
+    setPiece(cur,p); promoteIfNeeded(cur,p);
+    return {state:st, ok:true, reason:'', highlights:[from,...removedAll,cur]};
+  }
+
+  return {state:st, ok:false, reason:'Type inconnu', highlights:[]};
+}
+
+/* Playback */
+const statusEl=document.getElementById('status');
+const metaEl=document.getElementById('gameMeta');
+const hintEl=document.getElementById('hint');
+const moveLineEl=document.getElementById('moveLine');
+const gameSelect=document.getElementById('gameSelect');
+const titleBadge=document.getElementById('titleBadge');
+const openPdnLink=document.getElementById('openPdnLink');
+
+let games=[], tokens=[], parsedMoves=[], history=[], highlightsArr=[], ply=0, playing=false, timer=null;
+
+let START_SIDE='w';
+function sideForPly(i){ return (i%2===0)?START_SIDE:(START_SIDE==='w'?'b':'w'); }
+
+function rebuildHistory(tags, mode){
+  const prevMode = MAP_MODE;
+  if(mode) MAP_MODE = mode;
+
+  const st0 = stateFromTags(tags);
+
+  // Node: {state, prev, ply, highlights}
+  let frontier = [{ state: st0, prev: null, ply: 0, highlights: [] }];
+
+  function dedupFront(nodes, limit){
+    const seen = new Set();
+    const out = [];
+    for(const n of nodes){
+      const key = Object.keys(n.state).sort((a,b)=>Number(a)-Number(b))
+        .map(k=>k + (n.state[k].color==='w'?'w':'b') + (n.state[k].king?'K':'' )).join(',');
+      if(seen.has(key)) continue;
+      seen.add(key);
+      out.push(n);
+      if(out.length>=limit) break;
+    }
+    return out;
+  }
+
+  // Reconstruct one path from a node (returns history + highlights arrays)
+  function reconstruct(node){
+    const hist=[];
+    const hls=[];
+    let cur=node;
+    while(cur){
+      hist.push(cur.state);
+      hls.push(cur.highlights);
+      cur = cur.prev;
+    }
+    hist.reverse();
+    hls.reverse();
+    return {hist, hls};
+  }
+
+  for(let i=0;i<parsedMoves.length;i++){
+    const side = sideForPly(i);
+    const newFrontier = [];
+    for(const node of frontier){
+      const res = applyMoveMulti(node.state, parsedMoves[i], side);
+      if(!res.ok) continue;
+      for(const out of res.results){
+        newFrontier.push({
+          state: out.state,
+          prev: node,
+          ply: i+1,
+          highlights: out.highlights,
+        });
+      }
+    }
+
+    if(newFrontier.length === 0){
+      // Return the best partial line so the user can still replay up to the last valid ply
+      const bestNode = frontier[0];
+      const rec = reconstruct(bestNode);
+      const reason = applyMoveMulti(bestNode.state, parsedMoves[i], side).reason || 'Coup illégal';
+      MAP_MODE = prevMode;
+      return { okAll:false, errAt:i, errMsg: reason, history: rec.hist, highlights: rec.hls, mode: mode||MAP_MODE };
+    }
+
+    frontier = dedupFront(newFrontier, 4000);
+  }
+
+  // Success: choose any remaining node (first after dedup)
+  const rec = reconstruct(frontier[0]);
+  MAP_MODE = prevMode;
+  return { okAll:true, errAt:-1, errMsg:'', history: rec.hist, highlights: rec.hls, mode: mode||MAP_MODE };
+}
+
+function updateButtons(){
+  document.getElementById('btnPrev').disabled = (ply<=0);
+  document.getElementById('btnNext').disabled = (ply>=history.length-1);
+  document.getElementById('btnReset').disabled = (ply<=0);
+  document.getElementById('btnPlay').textContent = playing ? '⏸' : '▶';
+  document.getElementById('btnPlay').disabled = (history.length<=1);
+}
+function updateStatus(){
+  statusEl.textContent = `Coup: ${ply}/${Math.max(0,history.length-1)}  |  À jouer: ${(sideForPly(ply)==='w')?'Blanc':'Noir'}`;
+}
+function renderMoveLine(){
+  moveLineEl.innerHTML='';
+  tokens.forEach((t,i)=>{
+    const sp=document.createElement('span'); sp.textContent=t;
+    if(i===ply-1) sp.classList.add('active');
+    sp.onclick=()=>{ stopPlay(); setPly(i+1); };
+    moveLineEl.appendChild(sp); moveLineEl.appendChild(document.createTextNode(' '));
+  });
+}
+function setPly(newPly){
+  ply=Math.max(0,Math.min(newPly,history.length-1));
+  clearHighlights(); render(history[ply]);
+  if(ply>0){
+    const hl = highlightsArr[ply] || [];
+    hl.forEach(setHighlight);
+  }
+  updateStatus(); updateButtons(); renderMoveLine();
+}
+function stopPlay(){ playing=false; if(timer) clearInterval(timer); timer=null; updateButtons(); }
+function startPlay(){
+  if(playing) return;
+  playing=true; updateButtons();
+  const speed=Number(document.getElementById('speed').value);
+  timer=setInterval(()=>{
+    if(ply>=history.length-1){ stopPlay(); return; }
+    setPly(ply+1);
+  }, speed);
+}
+
+function formatTags(tags){
+  const order=['Event','Date','Site','Round','White','Black','Result'];
+  const lines=[];
+  for(const k of order) if(tags[k]) lines.push(`${k}: ${tags[k]}`);
+  for(const [k,v] of Object.entries(tags)) if(!order.includes(k)) lines.push(`${k}: ${v}`);
+  return lines.join('\n');
+}
+function populateSelect(){
+  gameSelect.innerHTML='';
+  if(!games.length){
+    const o=document.createElement('option'); o.textContent='— aucune partie —'; o.value='0';
+    gameSelect.appendChild(o); gameSelect.disabled=true; return;
+  }
+  gameSelect.disabled=false;
+  games.forEach((g,i)=>{
+    const o=document.createElement('option');
+    const w=g.tags.White||'Blanc', b=g.tags.Black||'Noir', d=g.tags.Date||'';
+    o.value=i; o.textContent=`#${i+1} — ${w} vs ${b}${d?` (${d})`:''}`;
+    gameSelect.appendChild(o);
+  });
+  gameSelect.onchange=()=>loadGame(Number(gameSelect.value));
+}
+function loadGame(i){
+  stopPlay();
+  const g=games[i]; if(!g) return;
+  tokens=extractMoveTokens(g.movesText);
+  parsedMoves=tokens.map(parseMoveToken);
+
+  // Mapping: on force A (standard) pour éviter des interprétations divergentes.
+  const rebuilt = rebuildHistory(g.tags, 'A');
+  MAP_MODE = 'A';
+
+  history = rebuilt.history;
+  highlightsArr = rebuilt.highlights || [];
+
+  if(!rebuilt.okAll){
+    metaEl.textContent =
+      `⚠️ Lecture OK jusqu’au demi-coup #${(history.length-1)}
+`+
+      `Erreur à partir du demi-coup #${rebuilt.errAt+1}
+`+
+      `Token: "${tokens[rebuilt.errAt]||''}"
+`+
+      `Raison: ${rebuilt.errMsg}
+Mapping: ${MAP_MODE}`;
+    hintEl.textContent='';
+  }else{
+    metaEl.textContent = formatTags(g.tags) + `
+Coups lus: ${parsedMoves.filter(m=>m.type!=='unknown').length}` + `
+Mapping: ${MAP_MODE} (${MAP_MODE==='A'?'1=haut-gauche clair':'1=haut-gauche foncé'})`;
+    hintEl.textContent='';
+  }
+  setPly(0);
+}
+
+/* Loaders */
+function getParam(n){ return new URL(window.location.href).searchParams.get(n); }
+
+async function loadFromUrl(){
+  const pdnUrl=getParam('pdn');
+  const title=getParam('title'); if(title) titleBadge.textContent=decodeURIComponent(title);
+  if(!pdnUrl){ hintEl.textContent="Charge un fichier PDN, colle le PDN à droite, ou utilise ?pdn=..."; return; }
+  try{
+    openPdnLink.href=pdnUrl; openPdnLink.style.display='inline-block';
+    const r=await fetch(pdnUrl,{cache:'no-store'}); if(!r.ok) throw new Error();
+    const txt=await r.text();
+    document.getElementById('pdnText').value=txt;
+    games=parsePDNGames(txt); populateSelect(); loadGame(0);
+  }catch(e){
+    hintEl.textContent="Impossible de charger le PDN via l’URL (CORS/URL). Charge le fichier via le bouton.";
+  }
+}
+
+document.getElementById('btnPrev').onclick=()=>setPly(ply-1);
+document.getElementById('btnNext').onclick=()=>setPly(ply+1);
+document.getElementById('btnReset').onclick=()=>setPly(0);
+document.getElementById('btnPlay').onclick=()=> (playing?stopPlay():startPlay());
+document.getElementById('speed').oninput=()=>{ if(playing){ stopPlay(); startPlay(); } };
+
+document.getElementById('btnLoadText').onclick=()=>{
+  const txt=document.getElementById('pdnText').value.trim(); if(!txt) return;
+  games=parsePDNGames(txt); populateSelect(); loadGame(0);
+};
+document.getElementById('btnSample').onclick=()=>{
+  const sample=`[Event "Exemple"]\n[Date "2025.03.01"]\n[White "A"]\n[Black "B"]\n[Result "*"]\n1. 32-28 17-21 2. 31-26 11-17 3. 28-23 19x28 4. 33x11 6x17 *`;
+  document.getElementById('pdnText').value=sample;
+  games=parsePDNGames(sample); populateSelect(); loadGame(0);
+};
+document.getElementById('file').addEventListener('change', async (e)=>{
+  const f=e.target.files?.[0]; if(!f) return;
+  const txt=await f.text();
+  document.getElementById('pdnText').value=txt;
+  games=parsePDNGames(txt); populateSelect(); loadGame(0);
+});
+
+render(initialState()); updateStatus(); updateButtons(); populateSelect(); loadFromUrl();
+</script>
+</body>
+</html>
