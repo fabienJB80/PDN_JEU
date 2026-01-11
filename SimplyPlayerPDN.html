@@ -8,9 +8,13 @@
     :root{
       --panel:#f3efe6;
       --border:#d8cfbf;
-      --light:#efe4cf;
-      --dark:#a8743a;   /* ✅ marron adouci (change ici si besoin) */
-      --w: 480px;       /* fallback si JS désactivé */
+
+      /* 🎨 Couleurs du damier (adoucies) */
+      --light:#eadfcf;
+      --dark:#b98957;
+
+      /* 👉 TAILLE max du damier (fallback si JS désactivé) */
+      --w: 480px;
     }
 
     html,body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial}
@@ -33,27 +37,25 @@
     .topbar{
       display:flex;
       align-items:center;
-      justify-content:flex-start;
       gap:10px;
+      justify-content:space-between;
+      flex-wrap:wrap;
     }
-    .selectWrap{
-      display:flex;
-      align-items:center;
-      gap:8px;
+
+    .label{
       font-size:13px;
       color:#3b2a16;
-      width:100%;
+      font-weight:700;
     }
-    .selectWrap strong{white-space:nowrap}
+
     select{
-      width:100%;
-      max-width:360px;
+      flex:1;
+      min-width:240px;
       padding:8px 10px;
       border-radius:10px;
       border:1px solid var(--border);
       background:#fff;
-      font-size:13px;
-      outline:none;
+      font-weight:600;
     }
 
     .board{
@@ -61,13 +63,13 @@
       aspect-ratio:1/1;
       display:grid;
       grid-template-columns:repeat(10,1fr);
-      grid-template-rows:repeat(10,1fr); /* ✅ IMPORTANT : cases toutes identiques */
-      border:0;
-      outline:1px solid rgba(0,0,0,.12);
+      grid-template-rows:repeat(10,1fr); /* ✅ cases strictement identiques */
+      border:0;                          /* ✅ pas de border qui fausse la grille */
+      outline:1px solid rgba(0,0,0,.12); /* ✅ outline ne change pas la taille */
       border-radius:10px;
       overflow:hidden;
       box-shadow:0 8px 30px rgba(0,0,0,.20);
-      background:#000; /* pas visible si tout est bien rempli */
+      background:#000;
     }
 
     .sq{
@@ -75,9 +77,10 @@
       display:flex;
       align-items:center;
       justify-content:center;
-      min-width:0;
-      min-height:0;
+      min-width:0;   /* ✅ évite élargissements bizarres */
+      min-height:0;  /* ✅ idem */
     }
+
     .light{background:var(--light)}
     .dark{background:var(--dark)}
 
@@ -85,12 +88,13 @@
       position:absolute;
       top:3px; left:5px;
       font-size:12px;
-      opacity:.55;
+      opacity:.50;
       color:#000;
       user-select:none;
+      line-height:1;
       pointer-events:none;
     }
-    .dark .num{color:#fff; opacity:.65}
+    .dark .num{color:#fff; opacity:.60}
 
     .piece{
       width:72%;
@@ -99,11 +103,12 @@
       display:flex;
       align-items:center;
       justify-content:center;
-      box-shadow: inset 0 3px 0 rgba(255,255,255,.18), 0 6px 12px rgba(0,0,0,.35);
-      border:1px solid rgba(0,0,0,.35);
+      box-shadow: inset 0 3px 0 rgba(255,255,255,.18), 0 6px 12px rgba(0,0,0,.30);
+      border:1px solid rgba(0,0,0,.30);
     }
     .w{background:#f6f1e8}
     .b{background:#1a1a1a}
+
     .king::after{
       content:"K";
       font-weight:800;
@@ -123,14 +128,15 @@
       border-radius:10px;
       padding:8px;
     }
+
     button{
-      padding:8px 12px;
+      padding:8px 10px;
       border-radius:10px;
       border:1px solid #cdbfa9;
       background:#fff;
       cursor:pointer;
-      font-weight:700;
-      min-width:44px;
+      font-weight:800;
+      min-width:42px;
       font-size:14px;
       line-height:1;
     }
@@ -146,7 +152,7 @@
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
-      min-width:0;
+      min-width:140px;
     }
 
     .msg{
@@ -162,24 +168,21 @@
 
 <body>
   <div class="wrap">
-
     <div class="topbar">
-      <div class="selectWrap">
-        <strong>Partie</strong>
-        <select id="gameSel" aria-label="Sélection de la partie">
-          <option value="1">Chargement…</option>
-        </select>
-      </div>
+      <div class="label">Partie</div>
+      <select id="gameSelect">
+        <option>Chargement…</option>
+      </select>
     </div>
 
     <div id="board" class="board" aria-label="Damier"></div>
 
     <div class="bar">
-      <button id="first" title="Début de la partie">⏮</button>
-      <button id="prev"  title="Coup précédent">⟵</button>
-      <button id="play"  title="Lecture / Pause">▶︎</button>
-      <button id="next"  title="Coup suivant">⟶</button>
-      <button id="last"  title="Fin de la partie">⏭</button>
+      <button id="first" title="Début">⏮</button>
+      <button id="prev" title="Coup précédent">⟵</button>
+      <button id="play" title="Lecture / Pause">▶︎</button>
+      <button id="next" title="Coup suivant">⟶</button>
+      <button id="last" title="Fin">⏭</button>
       <div id="info" class="info">Chargement…</div>
     </div>
 
@@ -188,8 +191,8 @@
 
 <script>
 (() => {
+
   // ---------- Helpers: 1..50 <-> (r,c) sur cases noires 10x10 ----------
-  // Case noire si (r+c)%2==1 ; numérotation de haut en bas, gauche à droite sur cases noires.
   function rcFromN(n){
     const i = n - 1;
     const r = Math.floor(i / 5);
@@ -205,12 +208,12 @@
   }
 
   // ---------- Board model ----------
-  const pieces = new Map(); // pieces[n] = {color:'w'|'b', king:boolean}
+  const pieces = new Map();
 
   function resetInitial(){
     pieces.clear();
-    for (let n=31;n<=50;n++) pieces.set(n,{color:'w',king:false}); // blancs en bas
-    for (let n=1;n<=20;n++)  pieces.set(n,{color:'b',king:false}); // noirs en haut
+    for (let n=31;n<=50;n++) pieces.set(n,{color:'w',king:false});
+    for (let n=1;n<=20;n++)  pieces.set(n,{color:'b',king:false});
   }
 
   function promoteIfNeeded(n){
@@ -230,7 +233,6 @@
         const dark = (r+c)%2===1;
         sq.className = 'sq ' + (dark?'dark':'light');
 
-        // Numérotation uniquement sur cases noires
         if (dark){
           const n = nFromRC(r,c);
           const num = document.createElement('div');
@@ -263,10 +265,9 @@
     for (let i=0;i<idx.length;i++){
       const start = idx[i];
       const end = (i+1<idx.length) ? idx[i+1] : txt.length;
-      const g = txt.slice(start,end).trim();
-      if (g) games.push(g);
+      games.push(txt.slice(start,end).trim());
     }
-    return games.length ? games : [txt.trim()];
+    return games;
   }
 
   function getTag(gameText, name){
@@ -306,20 +307,6 @@
     return { capture:isCap, path:parts };
   }
 
-  function buildMovesFromGame(gameText){
-    const body = extractMovesSection(gameText);
-    const tokens = tokenizeMoves(body);
-    const parsed = [];
-    let side = 'w'; // blanc commence
-    for (const tok of tokens){
-      const mo = parseMoveToken(tok);
-      if (!mo) continue;
-      parsed.push({ ...mo, raw:tok, side });
-      side = (side==='w') ? 'b' : 'w';
-    }
-    return parsed;
-  }
-
   // ---------- Apply moves ----------
   function removeCapturedBetween(a,b,color){
     const [r1,c1] = rcFromN(a);
@@ -345,9 +332,7 @@
     const {capture, path} = moveObj;
     const from = path[0];
     const piece = pieces.get(from);
-    if (!piece || piece.color !== side){
-      return false; // incohérence : on ignore le coup
-    }
+    if (!piece || piece.color !== side) return false;
 
     pieces.delete(from);
 
@@ -363,30 +348,23 @@
     return true;
   }
 
-  // ---------- Controls ----------
+  // ---------- UI controls ----------
   const firstBtn = document.getElementById('first');
   const prevBtn  = document.getElementById('prev');
-  const playBtn  = document.getElementById('play');
   const nextBtn  = document.getElementById('next');
   const lastBtn  = document.getElementById('last');
+  const playBtn  = document.getElementById('play');
   const info     = document.getElementById('info');
   const msg      = document.getElementById('msg');
-  const gameSel  = document.getElementById('gameSel');
+  const gameSelect = document.getElementById('gameSelect');
 
   let moves = [];
   let plyIndex = 0;
   let timer = null;
 
-  let allGames = [];
-  let currentGameIndex = 1;
-
   function stop(){
     if (timer){ clearInterval(timer); timer=null; }
     playBtn.textContent = '▶︎';
-  }
-
-  function showError(t){
-    msg.textContent = t || '';
   }
 
   function updateUI(meta=''){
@@ -394,7 +372,6 @@
     prevBtn.disabled  = (plyIndex===0);
     nextBtn.disabled  = (plyIndex===moves.length);
     lastBtn.disabled  = (plyIndex===moves.length);
-
     info.textContent = `Coup ${plyIndex}/${moves.length}` + (meta ? ` — ${meta}` : '');
   }
 
@@ -422,17 +399,8 @@
     rebuildTo(plyIndex);
   }
 
-  function goFirst(){
-    stop();
-    plyIndex = 0;
-    rebuildTo(0);
-  }
-
-  function goLast(){
-    stop();
-    plyIndex = moves.length;
-    rebuildTo(plyIndex);
-  }
+  function goFirst(){ stop(); plyIndex=0; rebuildTo(0); }
+  function goLast(){ stop(); plyIndex=moves.length; rebuildTo(moves.length); }
 
   firstBtn.addEventListener('click', goFirst);
   lastBtn.addEventListener('click', goLast);
@@ -448,79 +416,49 @@
     playBtn.textContent = '⏸';
   });
 
-  // ---------- PDN URL param ----------
+  // ---------- Load PDN ----------
+  function showError(t){ msg.textContent = t; }
+
   function resolvePDNUrl(pdnParam){
     if (/^https?:\/\//i.test(pdnParam)) return pdnParam;
     return new URL(pdnParam, location.href).href;
   }
 
-  function fillSelector(){
-    gameSel.innerHTML = '';
-    for (let i=0;i<allGames.length;i++){
-      const g = allGames[i];
-      const white = getTag(g,'White');
-      const black = getTag(g,'Black');
-      const event = getTag(g,'Event');
-      const opt = document.createElement('option');
-      opt.value = String(i+1);
-
-      const labelPlayers = (white||black) ? `${white} / ${black}` : '';
-      const label = [`Partie ${i+1}`, labelPlayers, event].filter(Boolean).join(' — ');
-      opt.textContent = label;
-
-      gameSel.appendChild(opt);
+  function buildMovesFromGame(gameText){
+    const body = extractMovesSection(gameText);
+    const tokens = tokenizeMoves(body);
+    const parsed = [];
+    let side = 'w';
+    for (const tok of tokens){
+      const mo = parseMoveToken(tok);
+      if (!mo) continue;
+      parsed.push({ ...mo, raw:tok, side });
+      side = (side==='w') ? 'b' : 'w';
     }
-    gameSel.value = String(currentGameIndex);
+    return parsed;
   }
 
-  function setGame(index){
-    stop();
-    currentGameIndex = Math.max(1, Math.min(index, allGames.length || 1));
-
-    const gameText = allGames[currentGameIndex-1] || allGames[0] || '';
+  function gameLabel(i, gameText){
     const event = getTag(gameText, 'Event');
     const date  = getTag(gameText, 'Date');
     const white = getTag(gameText, 'White');
     const black = getTag(gameText, 'Black');
-
-    moves = buildMovesFromGame(gameText);
-    plyIndex = 0;
-    rebuildTo(0);
-
-    const meta = [`Partie ${currentGameIndex}`, event, date, (white && black) ? (white+' / '+black) : '']
-      .filter(Boolean).join(' — ');
-    updateUI(meta);
-
-    showError(moves.length ? '' : 'PDN chargé, mais aucun coup détecté.');
+    const players = (white || black) ? `${white || '?'} vs ${black || '?'}` : 'Joueurs ?';
+    const extra = [event, date].filter(Boolean).join(' — ');
+    return `${i+1} — ${players}` + (extra ? ` — ${extra}` : '');
   }
 
-  gameSel.addEventListener('change', () => {
-    const v = parseInt(gameSel.value, 10);
-    if (!Number.isFinite(v)) return;
-
-    const url = new URL(location.href);
-    url.searchParams.set('g', String(v));
-    history.replaceState({}, '', url);
-
-    setGame(v);
-  });
-
-  // --- SNAP: taille du lecteur à un multiple de 10px (cases parfaitement égales)
-  function snapBoardSize(){
-    const max = 480;
-    const desired = Math.min(window.innerWidth * 0.88, max);
-    const snapped = Math.max(300, Math.floor(desired / 10) * 10);
-    document.documentElement.style.setProperty('--w', snapped + 'px');
-  }
+  let games = [];
+  let currentMeta = '';
 
   async function init(){
-    snapBoardSize();
     resetInitial();
     renderBoard();
 
     const params = new URLSearchParams(location.search);
     const pdnParam = params.get('pdn');
     const gParam = parseInt(params.get('g') || '1', 10);
+    const startIndex = Number.isFinite(gParam) ? Math.max(1, gParam) : 1;
 
     if (!pdnParam){
       updateUI('Paramètre ?pdn= manquant');
@@ -535,20 +473,70 @@
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const text = await r.text();
 
-      allGames = splitGames(text);
-      currentGameIndex = Number.isFinite(gParam) ? Math.max(1, gParam) : 1;
-      currentGameIndex = Math.min(currentGameIndex, allGames.length);
+      games = splitGames(text);
 
-      fillSelector();
-      setGame(currentGameIndex);
+      // Remplit le sélecteur
+      gameSelect.innerHTML = '';
+      games.forEach((g, i) => {
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = gameLabel(i, g);
+        gameSelect.appendChild(opt);
+      });
+
+      const initial = Math.min(games.length-1, Math.max(0, startIndex-1));
+      gameSelect.value = String(initial);
+
+      loadGame(initial);
 
       showError('');
     } catch(e){
       updateUI('Erreur de chargement');
-      showError('Impossible de charger le PDN : ' + e.message);
+      showError(
+        "Impossible de charger le PDN (souvent CORS). " +
+        "Essaye un lien type raw.codeberg.page.\n" +
+        "Détail: " + e.message
+      );
     }
   }
 
+  function loadGame(index){
+    stop();
+    const gameText = games[index] || games[0] || '';
+    moves = buildMovesFromGame(gameText);
+    plyIndex = 0;
+    rebuildTo(0);
+
+    const event = getTag(gameText, 'Event');
+    const date  = getTag(gameText, 'Date');
+    const white = getTag(gameText, 'White');
+    const black = getTag(gameText, 'Black');
+
+    currentMeta = [event, date, (white && black) ? (white+' / '+black) : '']
+      .filter(Boolean).join(' — ');
+
+    updateUI(currentMeta);
+
+    if (!moves.length){
+      showError('PDN chargé, mais aucun coup détecté (format inattendu ?).');
+    } else {
+      showError('');
+    }
+  }
+
+  gameSelect.addEventListener('change', () => {
+    const idx = parseInt(gameSelect.value, 10);
+    loadGame(Number.isFinite(idx) ? idx : 0);
+  });
+
+  // --- SNAP: multiple de 10px => cases nettes
+  function snapBoardSize() {
+    const max = 480;
+    const desired = Math.min(window.innerWidth * 0.88, max);
+    const snapped = Math.max(300, Math.floor(desired / 10) * 10);
+    document.documentElement.style.setProperty('--w', snapped + 'px');
+  }
+  snapBoardSize();
   window.addEventListener('resize', snapBoardSize);
   setTimeout(snapBoardSize, 0);
   setTimeout(snapBoardSize, 200);
