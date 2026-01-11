@@ -9,17 +9,10 @@
       --panel:#f3efe6;
       --border:#d8cfbf;
       --light:#e7d8bf;
-      --dark: #b8895a;
-
-      /* Largeur max du damier (fallback si JS désactivé) */
+      --dark:#9b6b3f; /* plus doux */
       --w: 480px;
     }
-
-    html,body{
-      margin:0;
-      font-family:system-ui,Segoe UI,Roboto,Arial;
-    }
-
+    html,body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial}
     body{
       background:#fff;
       display:flex;
@@ -27,21 +20,14 @@
       justify-content:center;
       padding:12px;
     }
-
-    .wrap{
-      width:var(--w);
-      max-width:var(--w);
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
+    .wrap{width:var(--w); max-width:var(--w); display:flex; flex-direction:column; gap:10px}
 
     .board{
       width:100%;
       aspect-ratio:1/1;
       display:grid;
       grid-template-columns:repeat(10,1fr);
-      grid-template-rows:repeat(10,1fr); /* ✅ IMPORTANT : lignes fixes => cases toutes identiques */
+      grid-template-rows:repeat(10,1fr);
       border:0;
       outline:1px solid rgba(0,0,0,.12);
       border-radius:10px;
@@ -49,29 +35,15 @@
       box-shadow:0 8px 30px rgba(0,0,0,.20);
       background:#000;
     }
-
-    .sq{
-      position:relative;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-    }
+    .sq{position:relative; display:flex; align-items:center; justify-content:center;}
     .light{background:var(--light)}
     .dark{background:var(--dark)}
-
     .num{
-      position:absolute;
-      top:3px;
-      left:5px;
-      font-size:12px;
-      opacity:.50;
-      color:#000;
-      user-select:none;
-      line-height:1;
-      pointer-events:none;
+      position:absolute; top:3px; left:5px;
+      font-size:12px; opacity:.50; color:#000;
+      user-select:none; line-height:1; pointer-events:none;
     }
     .dark .num{color:#fff; opacity:.60}
-
     .piece{
       width:72%;
       aspect-ratio:1/1;
@@ -84,7 +56,6 @@
     }
     .w{background:#f6f1e8}
     .b{background:#1a1a1a}
-
     .king::after{
       content:"K";
       font-weight:800;
@@ -104,7 +75,6 @@
       border-radius:10px;
       padding:8px;
     }
-
     button{
       padding:8px 12px;
       border-radius:10px;
@@ -129,8 +99,32 @@
       text-overflow:ellipsis;
     }
 
+    .topbar{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      justify-content:space-between;
+      background:#fff;
+    }
+    .selectWrap{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-size:13px;
+      color:#3b2a16;
+    }
+    select{
+      max-width:320px;
+      width:100%;
+      padding:8px 10px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:#fff;
+      font-size:13px;
+    }
+
     .msg{
-      color:#b00020; /* ✅ lisible sur fond blanc */
+      color:#b00020;
       font-family:ui-monospace,Consolas,monospace;
       font-size:12px;
       text-align:center;
@@ -142,6 +136,15 @@
 
 <body>
   <div class="wrap">
+    <div class="topbar">
+      <div class="selectWrap">
+        <strong>Partie</strong>
+        <select id="gameSel" aria-label="Sélection de la partie">
+          <option value="1">Chargement…</option>
+        </select>
+      </div>
+    </div>
+
     <div id="board" class="board" aria-label="Damier"></div>
 
     <div class="bar">
@@ -156,7 +159,6 @@
 
 <script>
 (() => {
-  // ---------- Helpers: 1..50 <-> (r,c) sur cases noires 10x10 ----------
   function rcFromN(n){
     const i = n - 1;
     const r = Math.floor(i / 5);
@@ -171,15 +173,12 @@
     return r*5 + k + 1;
   }
 
-  // ---------- Board model ----------
   const pieces = new Map();
-
   function resetInitial(){
     pieces.clear();
     for (let n=31;n<=50;n++) pieces.set(n,{color:'w',king:false});
     for (let n=1;n<=20;n++) pieces.set(n,{color:'b',king:false});
   }
-
   function promoteIfNeeded(n){
     const p = pieces.get(n);
     if (!p || p.king) return;
@@ -196,14 +195,12 @@
         const sq = document.createElement('div');
         const dark = (r+c)%2===1;
         sq.className = 'sq ' + (dark?'dark':'light');
-
         if (dark){
           const n = nFromRC(r,c);
           const num = document.createElement('div');
           num.className='num';
           num.textContent = n;
           sq.appendChild(num);
-
           const p = pieces.get(n);
           if (p){
             const d = document.createElement('div');
@@ -216,14 +213,13 @@
     }
   }
 
-  // ---------- PDN parsing ----------
   function splitGames(pdnText){
     const txt = pdnText.replace(/\r\n/g, '\n');
     const idx = [];
     const re = /^\s*\[Event\s+/gmi;
     let m;
     while ((m = re.exec(txt)) !== null) idx.push(m.index);
-    if (idx.length===0) return [txt];
+    if (idx.length===0) return [txt.trim()];
 
     const games = [];
     for (let i=0;i<idx.length;i++){
@@ -252,15 +248,7 @@
     body = body.replace(/\b\d+\s*\.(\.\.)?/g, ' ');
     body = body.replace(/\s+/g, ' ').trim();
     if (!body) return [];
-    const raw = body.split(' ');
-    const tokens = [];
-    for (const t of raw){
-      const u = t.trim();
-      if (!u) continue;
-      if (/^\$?\d+$/.test(u)) continue;
-      tokens.push(u);
-    }
-    return tokens;
+    return body.split(' ').filter(u => u && !/^\$?\d+$/.test(u));
   }
 
   function parseMoveToken(tok){
@@ -271,7 +259,6 @@
     return { capture:isCap, path:parts };
   }
 
-  // ---------- Apply moves ----------
   function removeCapturedBetween(a,b,color){
     const [r1,c1] = rcFromN(a);
     const [r2,c2] = rcFromN(b);
@@ -297,36 +284,36 @@
     const from = path[0];
     const piece = pieces.get(from);
     if (!piece || piece.color !== side) return false;
-
     pieces.delete(from);
-
     if (capture){
       for (let i=0;i<path.length-1;i++){
         removeCapturedBetween(path[i], path[i+1], side);
       }
     }
-
     const to = path[path.length-1];
     pieces.set(to, piece);
     promoteIfNeeded(to);
     return true;
   }
 
-  // ---------- Player controls ----------
   const prevBtn = document.getElementById('prev');
   const nextBtn = document.getElementById('next');
   const playBtn = document.getElementById('play');
   const info = document.getElementById('info');
   const msg = document.getElementById('msg');
+  const gameSel = document.getElementById('gameSel');
 
+  let allGames = [];
   let moves = [];
   let plyIndex = 0;
   let timer = null;
+  let currentGameIndex = 1;
 
   function stop(){
     if (timer){ clearInterval(timer); timer=null; }
     playBtn.textContent = '▶︎';
   }
+  function showError(t){ msg.textContent = t; }
 
   function updateUI(meta=''){
     prevBtn.disabled = (plyIndex===0);
@@ -336,9 +323,7 @@
 
   function rebuildTo(index){
     resetInitial();
-    for (let i=0;i<index;i++){
-      applyOne(moves[i], moves[i].side);
-    }
+    for (let i=0;i<index;i++) applyOne(moves[i], moves[i].side);
     renderBoard();
     updateUI();
   }
@@ -369,18 +354,9 @@
     playBtn.textContent = '⏸';
   });
 
-  // ---------- Load PDN from URL param ----------
-  function showError(t){ msg.textContent = t; }
-
   function resolvePDNUrl(pdnParam){
-    // URL absolue
     if (/^https?:\/\//i.test(pdnParam)) return pdnParam;
-
-    // ✅ Si l'utilisateur met "/PDN/xxx.pdn", on veut que ça soit relatif au dossier PDN_JEU
-    // donc on enlève le "/" initial.
     const cleaned = pdnParam.startsWith('/') ? pdnParam.slice(1) : pdnParam;
-
-    // Relatif à la page actuelle
     return new URL(cleaned, location.href).href;
   }
 
@@ -398,7 +374,53 @@
     return parsed;
   }
 
-  // --- SNAP: multiple de 10px pour cases parfaites
+  function setGame(index){
+    stop();
+    currentGameIndex = index;
+
+    const gameText = allGames[index-1] || allGames[0];
+    const event = getTag(gameText, 'Event');
+    const date  = getTag(gameText, 'Date');
+    const white = getTag(gameText, 'White');
+    const black = getTag(gameText, 'Black');
+
+    moves = buildMovesFromGame(gameText);
+    plyIndex = 0;
+    rebuildTo(0);
+
+    const meta = [`Partie ${index}`, event, date, (white && black) ? (white+' / '+black) : '']
+      .filter(Boolean).join(' — ');
+    updateUI(meta);
+
+    showError(moves.length ? '' : 'PDN chargé, mais aucun coup détecté.');
+  }
+
+  function fillSelector(){
+    gameSel.innerHTML = '';
+    for (let i=0;i<allGames.length;i++){
+      const g = allGames[i];
+      const white = getTag(g,'White');
+      const black = getTag(g,'Black');
+      const opt = document.createElement('option');
+      opt.value = String(i+1);
+      opt.textContent = `Partie ${i+1}` + ((white||black) ? ` — ${white} / ${black}` : '');
+      gameSel.appendChild(opt);
+    }
+    gameSel.value = String(currentGameIndex);
+  }
+
+  gameSel.addEventListener('change', () => {
+    const v = parseInt(gameSel.value, 10);
+    if (!Number.isFinite(v)) return;
+
+    // met à jour l'URL (pratique si tu copies le lien)
+    const url = new URL(location.href);
+    url.searchParams.set('g', String(v));
+    history.replaceState({}, '', url);
+
+    setGame(v);
+  });
+
   function snapBoardSize() {
     const max = 480;
     const desired = Math.min(window.innerWidth * 0.88, max);
@@ -410,6 +432,7 @@
     snapBoardSize();
     setTimeout(snapBoardSize, 0);
     setTimeout(snapBoardSize, 200);
+    window.addEventListener('resize', snapBoardSize);
 
     resetInitial();
     renderBoard();
@@ -417,7 +440,7 @@
     const params = new URLSearchParams(location.search);
     const pdnParam = params.get('pdn');
     const gParam = parseInt(params.get('g') || '1', 10);
-    const gIndex = Number.isFinite(gParam) ? Math.max(1, gParam) : 1;
+    currentGameIndex = Number.isFinite(gParam) ? Math.max(1, gParam) : 1;
 
     if (!pdnParam){
       updateUI('Paramètre ?pdn= manquant');
@@ -425,40 +448,23 @@
       return;
     }
 
-    const pdnUrl = resolvePDNUrl(pdnParam);
-
     try{
+      const pdnUrl = resolvePDNUrl(pdnParam);
       const r = await fetch(pdnUrl, { cache:'no-store' });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const text = await r.text();
 
-      const games = splitGames(text);
-      const gameText = games[gIndex-1] || games[0]; // ✅ une seule partie chargée
-
-      const event = getTag(gameText, 'Event');
-      const date  = getTag(gameText, 'Date');
-      const white = getTag(gameText, 'White');
-      const black = getTag(gameText, 'Black');
-
-      moves = buildMovesFromGame(gameText);
-      plyIndex = 0;
-      rebuildTo(0);
-
-      const meta = [event, date, (white && black) ? (white+' / '+black) : '']
-        .filter(Boolean).join(' — ');
-      updateUI(meta);
-
-      showError(moves.length ? '' : 'PDN chargé, mais aucun coup détecté (format inattendu ?).');
+      allGames = splitGames(text);
+      fillSelector();
+      setGame(Math.min(currentGameIndex, allGames.length));
     } catch(e){
       updateUI('Erreur de chargement');
       showError('Impossible de charger le PDN : ' + e.message);
     }
   }
 
-  window.addEventListener('resize', snapBoardSize);
   init();
 })();
 </script>
 </body>
 </html>
-
