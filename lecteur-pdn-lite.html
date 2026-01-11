@@ -12,8 +12,8 @@
       --light:#e7d8bf;
       --dark:#8a5b2b;
       --accent:#fff;
-    /* 👉 TAILLE DU DAMIER (MODE COMPACT ARTICLE) */
-    --w: min(88vw, 480px);
+    /* 👉 TAILLE DU DAMIER max */
+  --w: 640px;
     }
     html,body{height:100%;margin:0;font-family:system-ui,Segoe UI,Roboto,Arial}
     body{background:var(--bg); display:flex; align-items:center; justify-content:center; padding:12px}
@@ -425,6 +425,17 @@
     }
   }
 
+  // --- SNAP: force la taille du damier à un multiple de 10px (cases parfaitement égales)
+  function snapBoardSize() {
+    const max = 480;                // largeur max du damier
+    const desired = Math.min(window.innerWidth * 0.88, max);
+    const snapped = Math.max(300, Math.floor(desired / 10) * 10); // min 300, multiple de 10
+    document.documentElement.style.setProperty('--w', snapped + 'px');
+  }
+  snapBoardSize();
+  window.addEventListener('resize', snapBoardSize);
+
+  
   init();
 })();
 </script>
