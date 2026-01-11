@@ -10,8 +10,8 @@
       --panel:#f3efe6;
       --border:#d8cfbf;
       --light:#efe3cc;
-      --dark:#b98a57;       /* marron plus doux */
-      --w: 480px;           /* fallback si JS désactivé */
+      --dark:#b98a57;
+      --w: 480px;
     }
 
     html,body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial}
@@ -31,7 +31,6 @@
       gap:10px;
     }
 
-    /* Barre "Partie" */
     .topbar{
       display:flex;
       gap:8px;
@@ -55,13 +54,12 @@
       color:#3b2a16;
     }
 
-    /* Damier */
     .board{
       width:100%;
       aspect-ratio:1/1;
       display:grid;
       grid-template-columns:repeat(10,1fr);
-      grid-template-rows:repeat(10,1fr); /* IMPORTANT: cases toutes identiques */
+      grid-template-rows:repeat(10,1fr);
       border:0;
       outline:1px solid rgba(0,0,0,.12);
       border-radius:10px;
@@ -113,7 +111,6 @@
     }
     .w.king::after{color:rgba(0,0,0,.75); text-shadow:none}
 
-    /* Commandes */
     .bar{
       display:flex;
       gap:6px;
@@ -199,6 +196,7 @@
     if (!Number.isInteger(k) || k<0 || k>4) return null;
     return r*5 + k + 1;
   }
+  function inside(r,c){ return r>=0 && r<10 && c>=0 && c<10; }
 
   // ------------------ Board model ------------------
   const pieces = new Map();
@@ -301,6 +299,113 @@
     return { capture:isCap, path:parts };
   }
 
+  // ------------------ Capture path reconstruction (when PDN gives only A x B) ------------------
+  function clonePiecesMap(src){
+    const m = new Map();
+    for (const [k,v] of src.entries()) m.set(k, {color:v.color, king:!!v.king});
+    return m;
+  }
+
+  function opponent(color){ return color === 'w' ? 'b' : 'w'; }
+
+  function findUniqueCapturePath(from, to, side, isKing){
+    const startMap = clonePiecesMap(pieces);
+    const opp = opponent(side);
+    const results = [];
+
+    function pushResult(path){
+      results.push(path.slice());
+    }
+
+    function manCapturesFrom(pos, map){
+      const [r,c] = rcFromN(pos);
+      const dirs = [[-1,-1],[-1,1],[1,-1],[1,1]];
+      const out = [];
+      for (const [dr,dc] of dirs){
+        const r1=r+dr, c1=c+dc;
+        const r2=r+2*dr, c2=c+2*dc;
+        if (!inside(r2,c2)) continue;
+        const mid = nFromRC(r1,c1);
+        const land = nFromRC(r2,c2);
+        if (!mid || !land) continue;
+        const mp = map.get(mid);
+        if (!mp || mp.color !== opp) continue;
+        if (map.has(land)) continue;
+        out.push({ land, cap: mid });
+      }
+      return out;
+    }
+
+    function kingCapturesFrom(pos, map){
+      const [r,c] = rcFromN(pos);
+      const dirs = [[-1,-1],[-1,1],[1,-1],[1,1]];
+      const out = [];
+      for (const [dr,dc] of dirs){
+        let rr=r+dr, cc=c+dc;
+        let firstPieceN = null;
+        while (inside(rr,cc)){
+          const nn = nFromRC(rr,cc);
+          if (!nn){ rr+=dr; cc+=dc; continue; } // case blanche
+          if (map.has(nn)){
+            firstPieceN = nn;
+            break;
+          }
+          rr+=dr; cc+=dc;
+        }
+        if (!firstPieceN) continue;
+        const fp = map.get(firstPieceN);
+        if (!fp || fp.color !== opp) continue;
+
+        // cases d'atterrissage possibles derrière la pièce adverse jusqu'au prochain obstacle
+        rr += dr; cc += dc;
+        while (inside(rr,cc)){
+          const nn = nFromRC(rr,cc);
+          if (!nn){ rr+=dr; cc+=dc; continue; }
+          if (map.has(nn)) break; // obstacle
+          out.push({ land: nn, cap: firstPieceN });
+          rr+=dr; cc+=dc;
+        }
+      }
+      return out;
+    }
+
+    function dfs(current, map, path){
+      if (results.length > 1) return; // on coupe si ambigu
+      if (current === to && path.length > 1){
+        pushResult(path);
+        return;
+      }
+
+      const nexts = isKing ? kingCapturesFrom(current, map) : manCapturesFrom(current, map);
+      if (nexts.length === 0) return;
+
+      for (const mv of nexts){
+        const map2 = clonePiecesMap(map);
+        const piece = map2.get(current);
+        if (!piece) continue;
+
+        map2.delete(current);
+        map2.delete(mv.cap);
+        map2.set(mv.land, piece);
+
+        const path2 = path.slice();
+        path2.push(mv.land);
+        dfs(mv.land, map2, path2);
+
+        if (results.length > 1) return;
+      }
+    }
+
+    // sanity: la case "from" doit contenir la bonne pièce
+    const p0 = startMap.get(from);
+    if (!p0 || p0.color !== side) return null;
+
+    dfs(from, startMap, [from]);
+
+    if (results.length === 1) return results[0];
+    return null; // 0 ou >1
+  }
+
   // ------------------ Apply moves ------------------
   function removeCapturedBetween(a,b,color){
     const [r1,c1] = rcFromN(a);
@@ -324,10 +429,19 @@
   }
 
   function applyOne(moveObj, side){
-    const {capture, path} = moveObj;
+    let {capture, path} = moveObj;
+
     const from = path[0];
     const piece = pieces.get(from);
     if (!piece || piece.color !== side) return false;
+
+    // Si capture en notation courte (A x B), reconstruire le chemin unique (A x ... x B)
+    if (capture && path.length === 2){
+      const to = path[1];
+      const full = findUniqueCapturePath(from, to, side, !!piece.king);
+      if (full) path = full;
+      // si pas unique (0 ou >1), on laisse tel quel => retirera au mieux une pièce
+    }
 
     pieces.delete(from);
 
@@ -412,28 +526,24 @@
     playBtn.textContent = '⏸';
   });
 
-  // ------------------ Labels (raccourci Event + sans date) ------------------
+  // ------------------ Labels ------------------
+  function labelGame(i, gameText){
+    const white = (getTag(gameText, 'White') || '').trim();
+    const black = (getTag(gameText, 'Black') || '').trim();
+    const both  = (white && black) ? (white + ' vs ' + black) : (white || black || 'Partie');
+    return `${i+1} — ${both}`;
+  }
+
   function shortEvent(ev){
     if (!ev) return '';
     ev = ev.replace(/\s+/g,' ').trim();
     return ev.split(',')[0].split(' - ')[0].trim();
   }
 
-  function labelGame(i, gameText){
-    const white = getTag(gameText, 'White');
-    const black = getTag(gameText, 'Black');
-    const ev    = shortEvent(getTag(gameText, 'Event'));
-    const players = (white && black) ? `${white} vs ${black}` : 'Partie';
-    return `${i+1} — ${players}` + (ev ? ` — ${ev}` : '');
-  }
-
   function shortMetaForCurrent(){
     if (!games[currentGameIndex]) return '';
     const ev = shortEvent(getTag(games[currentGameIndex], 'Event'));
-    const white = getTag(games[currentGameIndex], 'White');
-    const black = getTag(games[currentGameIndex], 'Black');
-    const players = (white && black) ? (white+' / '+black) : '';
-    return [ev, players].filter(Boolean).join(' — ');
+    return ev || '';
   }
 
   // ------------------ Build moves for a game ------------------
@@ -453,16 +563,12 @@
   }
 
   // ------------------ Fetch (avec fallback proxy CORS) ------------------
-  // Beaucoup de sites (SportsRégions, parfois Lidraughts, etc.) BLOQUENT fetch() via CORS.
-  // Solution: essayer direct, puis fallback via allorigins.
   async function fetchTextSmart(url){
-    // 1) direct
     try{
       const r = await fetch(url, { cache:'no-store' });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return await r.text();
     } catch(_e){
-      // 2) fallback proxy (public)
       const prox = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
       const r2 = await fetch(prox, { cache:'no-store' });
       if (!r2.ok) throw new Error('HTTP ' + r2.status);
