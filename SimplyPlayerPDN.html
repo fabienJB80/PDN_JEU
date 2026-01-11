@@ -4,17 +4,14 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>SimplyPlayerPDN</title>
+
   <style>
     :root{
       --panel:#f3efe6;
       --border:#d8cfbf;
-
-      /* 🎨 Couleurs du damier (adoucies) */
-      --light:#eadfcf;
-      --dark:#b98957;
-
-      /* 👉 TAILLE max du damier (fallback si JS désactivé) */
-      --w: 480px;
+      --light:#efe3cc;
+      --dark:#b98a57;       /* marron plus doux */
+      --w: 480px;           /* fallback si JS désactivé */
     }
 
     html,body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial}
@@ -34,53 +31,52 @@
       gap:10px;
     }
 
+    /* Barre "Partie" */
     .topbar{
       display:flex;
+      gap:8px;
       align-items:center;
-      gap:10px;
-      justify-content:space-between;
-      flex-wrap:wrap;
+      justify-content:center;
     }
-
-    .label{
+    .topbar label{
       font-size:13px;
       color:#3b2a16;
-      font-weight:700;
+      user-select:none;
     }
-
     select{
       flex:1;
-      min-width:240px;
+      min-width:0;
       padding:8px 10px;
       border-radius:10px;
       border:1px solid var(--border);
       background:#fff;
       font-weight:600;
+      font-size:13px;
+      color:#3b2a16;
     }
 
+    /* Damier */
     .board{
       width:100%;
       aspect-ratio:1/1;
       display:grid;
       grid-template-columns:repeat(10,1fr);
-      grid-template-rows:repeat(10,1fr); /* ✅ cases strictement identiques */
-      border:0;                          /* ✅ pas de border qui fausse la grille */
-      outline:1px solid rgba(0,0,0,.12); /* ✅ outline ne change pas la taille */
+      grid-template-rows:repeat(10,1fr); /* IMPORTANT: cases toutes identiques */
+      border:0;
+      outline:1px solid rgba(0,0,0,.12);
       border-radius:10px;
       overflow:hidden;
-      box-shadow:0 8px 30px rgba(0,0,0,.20);
+      box-shadow:0 8px 30px rgba(0,0,0,.18);
       background:#000;
     }
-
     .sq{
       position:relative;
       display:flex;
       align-items:center;
       justify-content:center;
-      min-width:0;   /* ✅ évite élargissements bizarres */
-      min-height:0;  /* ✅ idem */
+      min-width:0;
+      min-height:0;
     }
-
     .light{background:var(--light)}
     .dark{background:var(--dark)}
 
@@ -92,9 +88,8 @@
       color:#000;
       user-select:none;
       line-height:1;
-      pointer-events:none;
     }
-    .dark .num{color:#fff; opacity:.60}
+    .dark .num{color:#fff; opacity:.65}
 
     .piece{
       width:72%;
@@ -118,6 +113,7 @@
     }
     .w.king::after{color:rgba(0,0,0,.75); text-shadow:none}
 
+    /* Commandes */
     .bar{
       display:flex;
       gap:6px;
@@ -128,17 +124,15 @@
       border-radius:10px;
       padding:8px;
     }
-
     button{
-      padding:8px 10px;
+      padding:8px 12px;
       border-radius:10px;
       border:1px solid #cdbfa9;
       background:#fff;
       cursor:pointer;
       font-weight:800;
-      min-width:42px;
+      min-width:44px;
       font-size:14px;
-      line-height:1;
     }
     button:disabled{opacity:.55; cursor:not-allowed}
 
@@ -152,7 +146,7 @@
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
-      min-width:140px;
+      min-width:0;
     }
 
     .msg{
@@ -169,8 +163,8 @@
 <body>
   <div class="wrap">
     <div class="topbar">
-      <div class="label">Partie</div>
-      <select id="gameSelect">
+      <label for="gameSel">Partie</label>
+      <select id="gameSel" aria-label="Choisir une partie">
         <option>Chargement…</option>
       </select>
     </div>
@@ -179,10 +173,10 @@
 
     <div class="bar">
       <button id="first" title="Début">⏮</button>
-      <button id="prev" title="Coup précédent">⟵</button>
-      <button id="play" title="Lecture / Pause">▶︎</button>
-      <button id="next" title="Coup suivant">⟶</button>
-      <button id="last" title="Fin">⏭</button>
+      <button id="prev"  title="Coup précédent">⟵</button>
+      <button id="play"  title="Lecture / Pause">▶︎</button>
+      <button id="next"  title="Coup suivant">⟶</button>
+      <button id="last"  title="Fin">⏭</button>
       <div id="info" class="info">Chargement…</div>
     </div>
 
@@ -191,8 +185,7 @@
 
 <script>
 (() => {
-
-  // ---------- Helpers: 1..50 <-> (r,c) sur cases noires 10x10 ----------
+  // ------------------ Helpers cases 1..50 <-> (r,c) sur cases noires 10x10 ------------------
   function rcFromN(n){
     const i = n - 1;
     const r = Math.floor(i / 5);
@@ -207,13 +200,13 @@
     return r*5 + k + 1;
   }
 
-  // ---------- Board model ----------
+  // ------------------ Board model ------------------
   const pieces = new Map();
 
   function resetInitial(){
     pieces.clear();
-    for (let n=31;n<=50;n++) pieces.set(n,{color:'w',king:false});
-    for (let n=1;n<=20;n++)  pieces.set(n,{color:'b',king:false});
+    for (let n=31;n<=50;n++) pieces.set(n,{color:'w',king:false}); // blancs en bas
+    for (let n=1;n<=20;n++)  pieces.set(n,{color:'b',king:false}); // noirs en haut
   }
 
   function promoteIfNeeded(n){
@@ -231,10 +224,11 @@
       for (let c=0;c<10;c++){
         const sq = document.createElement('div');
         const dark = (r+c)%2===1;
-        sq.className = 'sq ' + (dark?'dark':'light');
+        sq.className = 'sq ' + (dark ? 'dark' : 'light');
 
         if (dark){
           const n = nFromRC(r,c);
+
           const num = document.createElement('div');
           num.className='num';
           num.textContent = n;
@@ -252,14 +246,14 @@
     }
   }
 
-  // ---------- PDN parsing ----------
+  // ------------------ PDN parsing ------------------
   function splitGames(pdnText){
     const txt = pdnText.replace(/\r\n/g, '\n');
     const idx = [];
     const re = /^\s*\[Event\s+/gmi;
     let m;
     while ((m = re.exec(txt)) !== null) idx.push(m.index);
-    if (idx.length===0) return [txt.trim()];
+    if (idx.length===0) return [txt];
 
     const games = [];
     for (let i=0;i<idx.length;i++){
@@ -307,13 +301,14 @@
     return { capture:isCap, path:parts };
   }
 
-  // ---------- Apply moves ----------
+  // ------------------ Apply moves ------------------
   function removeCapturedBetween(a,b,color){
     const [r1,c1] = rcFromN(a);
     const [r2,c2] = rcFromN(b);
     const dr = Math.sign(r2-r1);
     const dc = Math.sign(c2-c1);
     if (dr===0 || dc===0) return;
+
     let r=r1+dr, c=c1+dc;
     while (r!==r2 && c!==c2){
       const n = nFromRC(r,c);
@@ -348,19 +343,21 @@
     return true;
   }
 
-  // ---------- UI controls ----------
+  // ------------------ UI / Controls ------------------
   const firstBtn = document.getElementById('first');
   const prevBtn  = document.getElementById('prev');
+  const playBtn  = document.getElementById('play');
   const nextBtn  = document.getElementById('next');
   const lastBtn  = document.getElementById('last');
-  const playBtn  = document.getElementById('play');
   const info     = document.getElementById('info');
   const msg      = document.getElementById('msg');
-  const gameSelect = document.getElementById('gameSelect');
+  const gameSel  = document.getElementById('gameSel');
 
+  let timer = null;
   let moves = [];
   let plyIndex = 0;
-  let timer = null;
+  let games = [];
+  let currentGameIndex = 0;
 
   function stop(){
     if (timer){ clearInterval(timer); timer=null; }
@@ -372,7 +369,7 @@
     prevBtn.disabled  = (plyIndex===0);
     nextBtn.disabled  = (plyIndex===moves.length);
     lastBtn.disabled  = (plyIndex===moves.length);
-    info.textContent = `Coup ${plyIndex}/${moves.length}` + (meta ? ` — ${meta}` : '');
+    info.textContent  = `Coup ${plyIndex}/${moves.length}` + (meta ? ` — ${meta}` : '');
   }
 
   function rebuildTo(index){
@@ -380,32 +377,31 @@
     for (let i=0;i<index;i++){
       applyOne(moves[i], moves[i].side);
     }
+    plyIndex = index;
     renderBoard();
-    updateUI();
+    updateUI(shortMetaForCurrent());
   }
 
   function stepNext(){
-    if (plyIndex>=moves.length) { stop(); return; }
-    const m = moves[plyIndex];
-    applyOne(m, m.side);
+    if (plyIndex>=moves.length){ stop(); return; }
+    applyOne(moves[plyIndex], moves[plyIndex].side);
     plyIndex++;
     renderBoard();
-    updateUI();
+    updateUI(shortMetaForCurrent());
   }
 
   function stepPrev(){
     if (plyIndex<=0) return;
-    plyIndex--;
-    rebuildTo(plyIndex);
+    rebuildTo(plyIndex-1);
   }
 
-  function goFirst(){ stop(); plyIndex=0; rebuildTo(0); }
-  function goLast(){ stop(); plyIndex=moves.length; rebuildTo(moves.length); }
+  function goFirst(){ stop(); rebuildTo(0); }
+  function goLast(){ stop(); rebuildTo(moves.length); }
 
   firstBtn.addEventListener('click', goFirst);
-  lastBtn.addEventListener('click', goLast);
-  prevBtn.addEventListener('click', () => { stop(); stepPrev(); });
-  nextBtn.addEventListener('click', () => { stop(); stepNext(); });
+  lastBtn.addEventListener('click',  goLast);
+  prevBtn.addEventListener('click',  () => { stop(); stepPrev(); });
+  nextBtn.addEventListener('click',  () => { stop(); stepNext(); });
 
   playBtn.addEventListener('click', () => {
     if (timer){ stop(); return; }
@@ -416,17 +412,35 @@
     playBtn.textContent = '⏸';
   });
 
-  // ---------- Load PDN ----------
-  function showError(t){ msg.textContent = t; }
-
-  function resolvePDNUrl(pdnParam){
-    if (/^https?:\/\//i.test(pdnParam)) return pdnParam;
-    return new URL(pdnParam, location.href).href;
+  // ------------------ Labels (raccourci Event + sans date) ------------------
+  function shortEvent(ev){
+    if (!ev) return '';
+    ev = ev.replace(/\s+/g,' ').trim();
+    return ev.split(',')[0].split(' - ')[0].trim();
   }
 
+  function labelGame(i, gameText){
+    const white = getTag(gameText, 'White');
+    const black = getTag(gameText, 'Black');
+    const ev    = shortEvent(getTag(gameText, 'Event'));
+    const players = (white && black) ? `${white} vs ${black}` : 'Partie';
+    return `${i+1} — ${players}` + (ev ? ` — ${ev}` : '');
+  }
+
+  function shortMetaForCurrent(){
+    if (!games[currentGameIndex]) return '';
+    const ev = shortEvent(getTag(games[currentGameIndex], 'Event'));
+    const white = getTag(games[currentGameIndex], 'White');
+    const black = getTag(games[currentGameIndex], 'Black');
+    const players = (white && black) ? (white+' / '+black) : '';
+    return [ev, players].filter(Boolean).join(' — ');
+  }
+
+  // ------------------ Build moves for a game ------------------
   function buildMovesFromGame(gameText){
     const body = extractMovesSection(gameText);
     const tokens = tokenizeMoves(body);
+
     const parsed = [];
     let side = 'w';
     for (const tok of tokens){
@@ -438,108 +452,110 @@
     return parsed;
   }
 
-  function gameLabel(i, gameText){
-    const event = getTag(gameText, 'Event');
-    const date  = getTag(gameText, 'Date');
-    const white = getTag(gameText, 'White');
-    const black = getTag(gameText, 'Black');
-    const players = (white || black) ? `${white || '?'} vs ${black || '?'}` : 'Joueurs ?';
-    const extra = [event, date].filter(Boolean).join(' — ');
-    return `${i+1} — ${players}` + (extra ? ` — ${extra}` : '');
+  // ------------------ Fetch (avec fallback proxy CORS) ------------------
+  // Beaucoup de sites (SportsRégions, parfois Lidraughts, etc.) BLOQUENT fetch() via CORS.
+  // Solution: essayer direct, puis fallback via allorigins.
+  async function fetchTextSmart(url){
+    // 1) direct
+    try{
+      const r = await fetch(url, { cache:'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return await r.text();
+    } catch(_e){
+      // 2) fallback proxy (public)
+      const prox = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+      const r2 = await fetch(prox, { cache:'no-store' });
+      if (!r2.ok) throw new Error('HTTP ' + r2.status);
+      return await r2.text();
+    }
   }
 
-  let games = [];
-  let currentMeta = '';
+  // ------------------ URL resolver ------------------
+  function resolvePDNUrl(pdnParam){
+    if (/^https?:\/\//i.test(pdnParam)) return pdnParam;
+    return new URL(pdnParam, location.href).href;
+  }
 
+  // ------------------ Game selection ------------------
+  function fillSelect(){
+    gameSel.innerHTML = '';
+    for (let i=0;i<games.length;i++){
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = labelGame(i, games[i]);
+      gameSel.appendChild(opt);
+    }
+    gameSel.value = String(currentGameIndex);
+  }
+
+  function loadGame(index){
+    stop();
+    currentGameIndex = Math.max(0, Math.min(index, games.length-1));
+    moves = buildMovesFromGame(games[currentGameIndex]);
+    rebuildTo(0);
+    fillSelect();
+    msg.textContent = moves.length ? '' : 'PDN chargé, mais aucun coup détecté (format inattendu ?).';
+  }
+
+  gameSel.addEventListener('change', () => {
+    const idx = parseInt(gameSel.value, 10);
+    if (Number.isFinite(idx)) loadGame(idx);
+  });
+
+  // ------------------ SNAP size (iframe-friendly) ------------------
+  function snapBoardSize() {
+    const max = 480;
+    const cw = Math.max(
+      document.documentElement.clientWidth || 0,
+      document.body ? (document.body.clientWidth || 0) : 0
+    );
+    const desired = Math.min(cw * 0.92, max);
+    const snapped = Math.max(300, Math.floor(desired / 10) * 10);
+    document.documentElement.style.setProperty('--w', snapped + 'px');
+  }
+
+  // ------------------ Init ------------------
   async function init(){
     resetInitial();
     renderBoard();
 
+    snapBoardSize();
+    window.addEventListener('resize', snapBoardSize);
+    setTimeout(snapBoardSize, 0);
+    setTimeout(snapBoardSize, 200);
+
     const params = new URLSearchParams(location.search);
     const pdnParam = params.get('pdn');
     const gParam = parseInt(params.get('g') || '1', 10);
-    const startIndex = Number.isFinite(gParam) ? Math.max(1, gParam) : 1;
+    const gIndex = Number.isFinite(gParam) ? Math.max(1, gParam) : 1;
 
     if (!pdnParam){
       updateUI('Paramètre ?pdn= manquant');
-      showError('Ajoute ?pdn=URL_ou_chemin_du_fichier.pdn');
+      msg.textContent = 'Ajoute ?pdn=URL_ou_chemin_du_fichier.pdn';
       return;
     }
 
     const pdnUrl = resolvePDNUrl(pdnParam);
 
     try{
-      const r = await fetch(pdnUrl, { cache:'no-store' });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      const text = await r.text();
+      msg.textContent = '';
+      updateUI('Chargement…');
 
+      const text = await fetchTextSmart(pdnUrl);
       games = splitGames(text);
 
-      // Remplit le sélecteur
-      gameSelect.innerHTML = '';
-      games.forEach((g, i) => {
-        const opt = document.createElement('option');
-        opt.value = String(i);
-        opt.textContent = gameLabel(i, g);
-        gameSelect.appendChild(opt);
-      });
+      currentGameIndex = Math.min(gIndex-1, games.length-1);
+      if (currentGameIndex < 0) currentGameIndex = 0;
 
-      const initial = Math.min(games.length-1, Math.max(0, startIndex-1));
-      gameSelect.value = String(initial);
+      fillSelect();
+      loadGame(currentGameIndex);
 
-      loadGame(initial);
-
-      showError('');
+      updateUI(shortMetaForCurrent());
     } catch(e){
       updateUI('Erreur de chargement');
-      showError(
-        "Impossible de charger le PDN (souvent CORS). " +
-        "Essaye un lien type raw.codeberg.page.\n" +
-        "Détail: " + e.message
-      );
+      msg.textContent = 'Impossible de charger le PDN : ' + e.message;
     }
   }
-
-  function loadGame(index){
-    stop();
-    const gameText = games[index] || games[0] || '';
-    moves = buildMovesFromGame(gameText);
-    plyIndex = 0;
-    rebuildTo(0);
-
-    const event = getTag(gameText, 'Event');
-    const date  = getTag(gameText, 'Date');
-    const white = getTag(gameText, 'White');
-    const black = getTag(gameText, 'Black');
-
-    currentMeta = [event, date, (white && black) ? (white+' / '+black) : '']
-      .filter(Boolean).join(' — ');
-
-    updateUI(currentMeta);
-
-    if (!moves.length){
-      showError('PDN chargé, mais aucun coup détecté (format inattendu ?).');
-    } else {
-      showError('');
-    }
-  }
-
-  gameSelect.addEventListener('change', () => {
-    const idx = parseInt(gameSelect.value, 10);
-    loadGame(Number.isFinite(idx) ? idx : 0);
-  });
-
-  // --- SNAP: multiple de 10px => cases nettes
-  function snapBoardSize() {
-    const max = 480;
-    const desired = Math.min(window.innerWidth * 0.88, max);
-    const snapped = Math.max(300, Math.floor(desired / 10) * 10);
-    document.documentElement.style.setProperty('--w', snapped + 'px');
-  }
-  snapBoardSize();
-  window.addEventListener('resize', snapBoardSize);
-  setTimeout(snapBoardSize, 0);
-  setTimeout(snapBoardSize, 200);
 
   init();
 })();
