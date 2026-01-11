@@ -13,20 +13,33 @@
       --dark:#8a5b2b;
       --accent:#fff;
     /* 👉 TAILLE DU DAMIER max */
-  --w: 640px;
+   --w: 480px; /* fallback si JS désactivé */
+
     }
     html,body{height:100%;margin:0;font-family:system-ui,Segoe UI,Roboto,Arial}
-    body{background:var(--bg); display:flex; align-items:center; justify-content:center; padding:12px}
+    
+  /* body{background:var(--bg); display:flex; align-items:center; justify-content:center; padding:12px} */
+
+    body{
+      background:#fff;              /* pas de zone noire */
+      display:flex;
+      align-items:flex-start;       /* pas de centrage vertical */
+      justify-content:center;
+      padding:12px;
+    }
+
+    
     .wrap{width:var(--w); max-width:var(--w); display:flex; flex-direction:column; gap:10px}
     .board{
       width:100%;
       aspect-ratio:1/1;
       display:grid;
       grid-template-columns:repeat(10,1fr);
-      border:1px solid rgba(255,255,255,.15);
-      border-radius:10px;
-      overflow:hidden;
-      box-shadow:0 8px 30px rgba(0,0,0,.35);
+      border:0;                                /* IMPORTANT : pas de border */
+      outline:1px solid rgba(0,0,0,.12);       /* outline ne modifie pas la taille */
+            border-radius:10px;
+            overflow:hidden;
+        box-shadow:0 8px 30px rgba(0,0,0,.20);   /* ombre plus douce en article */       
       background:#000;
     }
     .sq{position:relative; display:flex; align-items:center; justify-content:center;}
@@ -170,7 +183,7 @@
 
           const p = pieces.get(n);
           if (p){
-            const d = document.CreateElement ? document.CreateElement('div') : document.createElement('div');
+            const d = document.createElement('div');
             d.className = 'piece ' + p.color + (p.king?' king':'');
             sq.appendChild(d);
           }
