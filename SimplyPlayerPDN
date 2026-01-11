@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SimplyPlayerPDN</title>
+  <style>
+    :root{
+      --panel:#f3efe6;
+      --border:#d8cfbf;
+      --light:#efe4cf;
+      --dark:#a8743a;   /* ✅ marron adouci (change ici si besoin) */
+      --w: 480px;       /* fallback si JS désactivé */
+    }
+
+    html,body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial}
+    body{
+      background:#fff;
+      display:flex;
+      align-items:flex-start;
+      justify-content:center;
+      padding:12px;
+    }
+
+    .wrap{
+      width:var(--w);
+      max-width:var(--w);
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:flex-start;
+      gap:10px;
+    }
+    .selectWrap{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-size:13px;
+      color:#3b2a16;
+      width:100%;
+    }
+    .selectWrap strong{white-space:nowrap}
+    select{
+      width:100%;
+      max-width:360px;
+      padding:8px 10px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:#fff;
+      font-size:13px;
+      outline:none;
+    }
+
+    .board{
+      width:100%;
+      aspect-ratio:1/1;
+      display:grid;
+      grid-template-columns:repeat(10,1fr);
+      grid-template-rows:repeat(10,1fr); /* ✅ IMPORTANT : cases toutes identiques */
+      border:0;
+      outline:1px solid rgba(0,0,0,.12);
+      border-radius:10px;
+      overflow:hidden;
+      box-shadow:0 8px 30px rgba(0,0,0,.20);
+      background:#000; /* pas visible si tout est bien rempli */
+    }
+
+    .sq{
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-width:0;
+      min-height:0;
+    }
+    .light{background:var(--light)}
+    .dark{background:var(--dark)}
+
+    .num{
+      position:absolute;
+      top:3px; left:5px;
+      font-size:12px;
+      opacity:.55;
+      color:#000;
+      user-select:none;
+      pointer-events:none;
+    }
+    .dark .num{color:#fff; opacity:.65}
+
+    .piece{
+      width:72%;
+      aspect-ratio:1/1;
+      border-radius:50%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow: inset 0 3px 0 rgba(255,255,255,.18), 0 6px 12px rgba(0,0,0,.35);
+      border:1px solid rgba(0,0,0,.35);
+    }
+    .w{background:#f6f1e8}
+    .b{background:#1a1a1a}
+    .king::after{
+      content:"K";
+      font-weight:800;
+      font-size:18px;
+      color:rgba(255,255,255,.85);
+      text-shadow:0 1px 0 rgba(0,0,0,.6);
+    }
+    .w.king::after{color:rgba(0,0,0,.75); text-shadow:none}
+
+    .bar{
+      display:flex;
+      gap:6px;
+      align-items:center;
+      justify-content:center;
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:8px;
+    }
+    button{
+      padding:8px 12px;
+      border-radius:10px;
+      border:1px solid #cdbfa9;
+      background:#fff;
+      cursor:pointer;
+      font-weight:700;
+      min-width:44px;
+      font-size:14px;
+      line-height:1;
+    }
+    button:disabled{opacity:.55; cursor:not-allowed}
+
+    .info{
+      flex:1;
+      text-align:center;
+      font-size:13px;
+      color:#3b2a16;
+      user-select:none;
+      padding:0 8px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      min-width:0;
+    }
+
+    .msg{
+      color:#b00020;
+      font-family:ui-monospace,Consolas,monospace;
+      font-size:12px;
+      text-align:center;
+      opacity:.95;
+      min-height:16px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+
+    <div class="topbar">
+      <div class="selectWrap">
+        <strong>Partie</strong>
+        <select id="gameSel" aria-label="Sélection de la partie">
+          <option value="1">Chargement…</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="board" class="board" aria-label="Damier"></div>
+
+    <div class="bar">
+      <button id="first" title="Début de la partie">⏮</button>
+      <button id="prev"  title="Coup précédent">⟵</button>
+      <button id="play"  title="Lecture / Pause">▶︎</button>
+      <button id="next"  title="Coup suivant">⟶</button>
+      <button id="last"  title="Fin de la partie">⏭</button>
+      <div id="info" class="info">Chargement…</div>
+    </div>
+
+    <div id="msg" class="msg"></div>
+  </div>
+
+<script>
+(() => {
+  // ---------- Helpers: 1..50 <-> (r,c) sur cases noires 10x10 ----------
+  // Case noire si (r+c)%2==1 ; numérotation de haut en bas, gauche à droite sur cases noires.
+  function rcFromN(n){
+    const i = n - 1;
+    const r = Math.floor(i / 5);
+    const k = i % 5;
+    const c = (r % 2 === 0) ? (1 + 2*k) : (0 + 2*k);
+    return [r,c];
+  }
+  function nFromRC(r,c){
+    if ((r+c)%2===0) return null;
+    const k = (r%2===0) ? (c-1)/2 : c/2;
+    if (!Number.isInteger(k) || k<0 || k>4) return null;
+    return r*5 + k + 1;
+  }
+
+  // ---------- Board model ----------
+  const pieces = new Map(); // pieces[n] = {color:'w'|'b', king:boolean}
+
+  function resetInitial(){
+    pieces.clear();
+    for (let n=31;n<=50;n++) pieces.set(n,{color:'w',king:false}); // blancs en bas
+    for (let n=1;n<=20;n++)  pieces.set(n,{color:'b',king:false}); // noirs en haut
+  }
+
+  function promoteIfNeeded(n){
+    const p = pieces.get(n);
+    if (!p || p.king) return;
+    const [r] = rcFromN(n);
+    if (p.color==='w' && r===0) p.king=true;
+    if (p.color==='b' && r===9) p.king=true;
+  }
+
+  function renderBoard(){
+    const board = document.getElementById('board');
+    board.innerHTML = '';
+    for (let r=0;r<10;r++){
+      for (let c=0;c<10;c++){
+        const sq = document.createElement('div');
+        const dark = (r+c)%2===1;
+        sq.className = 'sq ' + (dark?'dark':'light');
+
+        // Numérotation uniquement sur cases noires
+        if (dark){
+          const n = nFromRC(r,c);
+          const num = document.createElement('div');
+          num.className='num';
+          num.textContent = n;
+          sq.appendChild(num);
+
+          const p = pieces.get(n);
+          if (p){
+            const d = document.createElement('div');
+            d.className = 'piece ' + p.color + (p.king?' king':'');
+            sq.appendChild(d);
+          }
+        }
+        board.appendChild(sq);
+      }
+    }
+  }
+
+  // ---------- PDN parsing ----------
+  function splitGames(pdnText){
+    const txt = pdnText.replace(/\r\n/g, '\n');
+    const idx = [];
+    const re = /^\s*\[Event\s+/gmi;
+    let m;
+    while ((m = re.exec(txt)) !== null) idx.push(m.index);
+    if (idx.length===0) return [txt.trim()];
+
+    const games = [];
+    for (let i=0;i<idx.length;i++){
+      const start = idx[i];
+      const end = (i+1<idx.length) ? idx[i+1] : txt.length;
+      const g = txt.slice(start,end).trim();
+      if (g) games.push(g);
+    }
+    return games.length ? games : [txt.trim()];
+  }
+
+  function getTag(gameText, name){
+    const re = new RegExp('^\\s*\\['+name+'\\s+"([^"]*)"\\]\\s*$', 'mi');
+    const m = gameText.match(re);
+    return m ? m[1] : '';
+  }
+
+  function extractMovesSection(gameText){
+    let body = gameText.replace(/^\s*\[[^\]]+\]\s*$/gmi, '');
+    body = body.replace(/\{[^}]*\}/g, ' ');
+    body = body.replace(/;[^\n]*$/gm, ' ');
+    body = body.replace(/\b(1-0|0-1|1\/2-1\/2|\*)\b/g, ' ');
+    return body;
+  }
+
+  function tokenizeMoves(body){
+    body = body.replace(/\b\d+\s*\.(\.\.)?/g, ' ');
+    body = body.replace(/\s+/g, ' ').trim();
+    if (!body) return [];
+    const raw = body.split(' ');
+    const tokens = [];
+    for (const t of raw){
+      const u = t.trim();
+      if (!u) continue;
+      if (/^\$?\d+$/.test(u)) continue;
+      tokens.push(u);
+    }
+    return tokens;
+  }
+
+  function parseMoveToken(tok){
+    const isCap = tok.includes('x') || tok.includes('X');
+    const sep = isCap ? /x|X/ : /-/;
+    const parts = tok.split(sep).map(s=>parseInt(s,10)).filter(n=>Number.isFinite(n));
+    if (parts.length<2) return null;
+    return { capture:isCap, path:parts };
+  }
+
+  function buildMovesFromGame(gameText){
+    const body = extractMovesSection(gameText);
+    const tokens = tokenizeMoves(body);
+    const parsed = [];
+    let side = 'w'; // blanc commence
+    for (const tok of tokens){
+      const mo = parseMoveToken(tok);
+      if (!mo) continue;
+      parsed.push({ ...mo, raw:tok, side });
+      side = (side==='w') ? 'b' : 'w';
+    }
+    return parsed;
+  }
+
+  // ---------- Apply moves ----------
+  function removeCapturedBetween(a,b,color){
+    const [r1,c1] = rcFromN(a);
+    const [r2,c2] = rcFromN(b);
+    const dr = Math.sign(r2-r1);
+    const dc = Math.sign(c2-c1);
+    if (dr===0 || dc===0) return;
+    let r=r1+dr, c=c1+dc;
+    while (r!==r2 && c!==c2){
+      const n = nFromRC(r,c);
+      if (n && pieces.has(n)){
+        const p = pieces.get(n);
+        if (p.color !== color){
+          pieces.delete(n);
+          return;
+        }
+      }
+      r+=dr; c+=dc;
+    }
+  }
+
+  function applyOne(moveObj, side){
+    const {capture, path} = moveObj;
+    const from = path[0];
+    const piece = pieces.get(from);
+    if (!piece || piece.color !== side){
+      return false; // incohérence : on ignore le coup
+    }
+
+    pieces.delete(from);
+
+    if (capture){
+      for (let i=0;i<path.length-1;i++){
+        removeCapturedBetween(path[i], path[i+1], side);
+      }
+    }
+
+    const to = path[path.length-1];
+    pieces.set(to, piece);
+    promoteIfNeeded(to);
+    return true;
+  }
+
+  // ---------- Controls ----------
+  const firstBtn = document.getElementById('first');
+  const prevBtn  = document.getElementById('prev');
+  const playBtn  = document.getElementById('play');
+  const nextBtn  = document.getElementById('next');
+  const lastBtn  = document.getElementById('last');
+  const info     = document.getElementById('info');
+  const msg      = document.getElementById('msg');
+  const gameSel  = document.getElementById('gameSel');
+
+  let moves = [];
+  let plyIndex = 0;
+  let timer = null;
+
+  let allGames = [];
+  let currentGameIndex = 1;
+
+  function stop(){
+    if (timer){ clearInterval(timer); timer=null; }
+    playBtn.textContent = '▶︎';
+  }
+
+  function showError(t){
+    msg.textContent = t || '';
+  }
+
+  function updateUI(meta=''){
+    firstBtn.disabled = (plyIndex===0);
+    prevBtn.disabled  = (plyIndex===0);
+    nextBtn.disabled  = (plyIndex===moves.length);
+    lastBtn.disabled  = (plyIndex===moves.length);
+
+    info.textContent = `Coup ${plyIndex}/${moves.length}` + (meta ? ` — ${meta}` : '');
+  }
+
+  function rebuildTo(index){
+    resetInitial();
+    for (let i=0;i<index;i++){
+      applyOne(moves[i], moves[i].side);
+    }
+    renderBoard();
+    updateUI();
+  }
+
+  function stepNext(){
+    if (plyIndex>=moves.length) { stop(); return; }
+    const m = moves[plyIndex];
+    applyOne(m, m.side);
+    plyIndex++;
+    renderBoard();
+    updateUI();
+  }
+
+  function stepPrev(){
+    if (plyIndex<=0) return;
+    plyIndex--;
+    rebuildTo(plyIndex);
+  }
+
+  function goFirst(){
+    stop();
+    plyIndex = 0;
+    rebuildTo(0);
+  }
+
+  function goLast(){
+    stop();
+    plyIndex = moves.length;
+    rebuildTo(plyIndex);
+  }
+
+  firstBtn.addEventListener('click', goFirst);
+  lastBtn.addEventListener('click', goLast);
+  prevBtn.addEventListener('click', () => { stop(); stepPrev(); });
+  nextBtn.addEventListener('click', () => { stop(); stepNext(); });
+
+  playBtn.addEventListener('click', () => {
+    if (timer){ stop(); return; }
+    timer = setInterval(() => {
+      if (plyIndex>=moves.length){ stop(); return; }
+      stepNext();
+    }, 650);
+    playBtn.textContent = '⏸';
+  });
+
+  // ---------- PDN URL param ----------
+  function resolvePDNUrl(pdnParam){
+    if (/^https?:\/\//i.test(pdnParam)) return pdnParam;
+    return new URL(pdnParam, location.href).href;
+  }
+
+  function fillSelector(){
+    gameSel.innerHTML = '';
+    for (let i=0;i<allGames.length;i++){
+      const g = allGames[i];
+      const white = getTag(g,'White');
+      const black = getTag(g,'Black');
+      const event = getTag(g,'Event');
+      const opt = document.createElement('option');
+      opt.value = String(i+1);
+
+      const labelPlayers = (white||black) ? `${white} / ${black}` : '';
+      const label = [`Partie ${i+1}`, labelPlayers, event].filter(Boolean).join(' — ');
+      opt.textContent = label;
+
+      gameSel.appendChild(opt);
+    }
+    gameSel.value = String(currentGameIndex);
+  }
+
+  function setGame(index){
+    stop();
+    currentGameIndex = Math.max(1, Math.min(index, allGames.length || 1));
+
+    const gameText = allGames[currentGameIndex-1] || allGames[0] || '';
+    const event = getTag(gameText, 'Event');
+    const date  = getTag(gameText, 'Date');
+    const white = getTag(gameText, 'White');
+    const black = getTag(gameText, 'Black');
+
+    moves = buildMovesFromGame(gameText);
+    plyIndex = 0;
+    rebuildTo(0);
+
+    const meta = [`Partie ${currentGameIndex}`, event, date, (white && black) ? (white+' / '+black) : '']
+      .filter(Boolean).join(' — ');
+    updateUI(meta);
+
+    showError(moves.length ? '' : 'PDN chargé, mais aucun coup détecté.');
+  }
+
+  gameSel.addEventListener('change', () => {
+    const v = parseInt(gameSel.value, 10);
+    if (!Number.isFinite(v)) return;
+
+    const url = new URL(location.href);
+    url.searchParams.set('g', String(v));
+    history.replaceState({}, '', url);
+
+    setGame(v);
+  });
+
+  // --- SNAP: taille du lecteur à un multiple de 10px (cases parfaitement égales)
+  function snapBoardSize(){
+    const max = 480;
+    const desired = Math.min(window.innerWidth * 0.88, max);
+    const snapped = Math.max(300, Math.floor(desired / 10) * 10);
+    document.documentElement.style.setProperty('--w', snapped + 'px');
+  }
+
+  async function init(){
+    snapBoardSize();
+    resetInitial();
+    renderBoard();
+
+    const params = new URLSearchParams(location.search);
+    const pdnParam = params.get('pdn');
+    const gParam = parseInt(params.get('g') || '1', 10);
+
+    if (!pdnParam){
+      updateUI('Paramètre ?pdn= manquant');
+      showError('Ajoute ?pdn=URL_ou_chemin_du_fichier.pdn');
+      return;
+    }
+
+    const pdnUrl = resolvePDNUrl(pdnParam);
+
+    try{
+      const r = await fetch(pdnUrl, { cache:'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const text = await r.text();
+
+      allGames = splitGames(text);
+      currentGameIndex = Number.isFinite(gParam) ? Math.max(1, gParam) : 1;
+      currentGameIndex = Math.min(currentGameIndex, allGames.length);
+
+      fillSelector();
+      setGame(currentGameIndex);
+
+      showError('');
+    } catch(e){
+      updateUI('Erreur de chargement');
+      showError('Impossible de charger le PDN : ' + e.message);
+    }
+  }
+
+  window.addEventListener('resize', snapBoardSize);
+  setTimeout(snapBoardSize, 0);
+  setTimeout(snapBoardSize, 200);
+
+  init();
+})();
+</script>
+</body>
+</html>
