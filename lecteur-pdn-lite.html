@@ -445,11 +445,15 @@
     const snapped = Math.max(300, Math.floor(desired / 10) * 10); // min 300, multiple de 10
     document.documentElement.style.setProperty('--w', snapped + 'px');
   }
-  snapBoardSize();
-  window.addEventListener('resize', snapBoardSize);
+ snapBoardSize();
+window.addEventListener('resize', snapBoardSize);
 
-  
-  init();
+// Re-snap après le rendu (utile dans iframe / Sportsrégions)
+setTimeout(snapBoardSize, 0);
+setTimeout(snapBoardSize, 200);
+
+init();
+
 })();
 </script>
 </body>
