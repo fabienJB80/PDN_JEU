@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>OPL – SimplyPlayerPDN (postMessage)</title>
+  <title>OPL – lecteur PDN (postMessage)</title>
 
   <style>
     :root{
@@ -210,8 +210,8 @@
 
   function resetInitial(){
     pieces.clear();
-    for (let n=31;n<=50;n++) pieces.set(n,{color:'w',king:false});
-    for (let n=1;n<=20;n++)  pieces.set(n,{color:'b',king:false});
+    for (let n=31;n<=50;n++) pieces.set(n,{color:'w',king:false}); // blancs en bas
+    for (let n=1;n<=20;n++)  pieces.set(n,{color:'b',king:false}); // noirs en haut
   }
 
   function promoteIfNeeded(n){
@@ -231,8 +231,10 @@
         const dark = (r+c)%2===1;
         sq.className = 'sq ' + (dark?'dark':'light');
 
+        // Numérotation uniquement sur cases noires
         if (dark){
           const n = nFromRC(r,c);
+
           const num = document.createElement('div');
           num.className='num';
           num.textContent = n;
@@ -310,7 +312,7 @@
     const body = extractMovesSection(gameText);
     const tokens = tokenizeMoves(body);
     const parsed = [];
-    let side = 'w';
+    let side = 'w'; // blanc commence
     for (const tok of tokens){
       const mo = parseMoveToken(tok);
       if (!mo) continue;
@@ -394,6 +396,7 @@
         const map2 = clonePiecesMap(map);
         const piece = map2.get(current);
         if (!piece) continue;
+
         map2.delete(current);
         map2.delete(mv.cap);
         map2.set(mv.land, piece);
@@ -401,6 +404,7 @@
         const path2 = path.slice();
         path2.push(mv.land);
         dfs(mv.land, map2, path2);
+
         if (results.length > 1) return;
       }
     }
@@ -440,7 +444,7 @@
     const piece = pieces.get(from);
     if (!piece || piece.color !== side) return false;
 
-    // capture courte A x B => reconstruire si possible
+    // Si capture courte A x B => reconstruire si possible
     if (capture && path.length === 2){
       const to = path[1];
       const full = findUniqueCapturePath(from, to, side, !!piece.king);
@@ -484,6 +488,16 @@
   }
 
   function showError(t){ msg.textContent = t || ''; }
+
+  function buildMeta(){
+    const gameText = allGames[currentGameIndex-1] || '';
+    const event = getTag(gameText, 'Event');
+    const date  = getTag(gameText, 'Date');
+    const white = getTag(gameText, 'White');
+    const black = getTag(gameText, 'Black');
+    return [`Partie ${currentGameIndex}`, event, date, (white && black) ? (white+' / '+black) : '']
+      .filter(Boolean).join(' — ');
+  }
 
   function updateUI(meta=''){
     firstBtn.disabled = (plyIndex===0);
@@ -550,16 +564,6 @@
     gameSel.value = String(currentGameIndex);
   }
 
-  function buildMeta(){
-    const gameText = allGames[currentGameIndex-1] || '';
-    const event = getTag(gameText, 'Event');
-    const date  = getTag(gameText, 'Date');
-    const white = getTag(gameText, 'White');
-    const black = getTag(gameText, 'Black');
-    return [`Partie ${currentGameIndex}`, event, date, (white && black) ? (white+' / '+black) : '']
-      .filter(Boolean).join(' — ');
-  }
-
   function setGame(index){
     stop();
     currentGameIndex = Math.max(1, Math.min(index, allGames.length || 1));
@@ -576,6 +580,7 @@
     setGame(v);
   });
 
+  // --- SNAP: taille du lecteur à un multiple de 10px
   function snapBoardSize(){
     const max = 480;
     const desired = Math.min(window.innerWidth * 0.88, max);
@@ -586,26 +591,24 @@
   setTimeout(snapBoardSize, 0);
   setTimeout(snapBoardSize, 200);
 
-  // ======== IMPORTANT : entrée PDN via postMessage ========
+  // ======== Entrée PDN via postMessage + handshake READY ========
   function loadFromPDNText(pdnText){
-    try{
-      allGames = splitGames(pdnText || '');
-      currentGameIndex = 1;
-      fillSelector();
-      setGame(1);
-      updateUI(buildMeta());
-      showError('');
-    } catch(e){
-      updateUI('Erreur PDN');
-      showError('PDN non lisible : ' + (e && e.message ? e.message : e));
-    }
+    allGames = splitGames(pdnText || '');
+    currentGameIndex = 1;
+    fillSelector();
+    setGame(1);
+    updateUI(buildMeta());
+    showError('');
   }
 
-  // Affichage initial (attente)
+  // Affichage initial
   resetInitial();
   renderBoard();
   updateUI('En attente du PDN…');
-  showError('En attente de la partie (postMessage)…');
+  showError('En attente de la partie…');
+
+  // Dire au parent qu'on est prêt
+  try { window.parent.postMessage({ type:'OPL_READY' }, '*'); } catch(_e){}
 
   // Réception du PDN
   window.addEventListener('message', (e) => {
@@ -619,3 +622,4 @@
 </script>
 </body>
 </html>
+
