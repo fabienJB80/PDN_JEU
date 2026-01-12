@@ -1,113 +1,216 @@
 <!doctype html>
 <html lang="fr">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>OPL – lecteur PDN local</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SimplyPlayerPDN – OPL</title>
 
 <style>
-:root{--light:#efe3cc;--dark:#b98a57;--w:480px}
-html,body{margin:0;font-family:system-ui}
-body{display:flex;justify-content:center;padding:12px}
-.wrap{width:var(--w);display:flex;flex-direction:column;gap:8px}
-.board{aspect-ratio:1/1;display:grid;grid-template:repeat(10,1fr)/repeat(10,1fr);border-radius:10px;overflow:hidden}
-.sq{display:flex;align-items:center;justify-content:center}
+/* === STYLE IDENTIQUE À SimplyPlayerPDN === */
+:root{
+  --panel:#f3efe6;
+  --border:#d8cfbf;
+  --light:#efe4cf;
+  --dark:#a8743a;
+  --w:480px;
+}
+html,body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial}
+body{background:#fff;display:flex;justify-content:center;padding:12px}
+.wrap{width:var(--w);display:flex;flex-direction:column;gap:10px}
+.topbar{display:flex;gap:10px}
+.selectWrap{display:flex;gap:8px;width:100%}
+.board{
+  width:100%;aspect-ratio:1/1;display:grid;
+  grid-template:repeat(10,1fr)/repeat(10,1fr);
+  border-radius:10px;overflow:hidden;
+  box-shadow:0 8px 30px rgba(0,0,0,.2)
+}
+.sq{display:flex;align-items:center;justify-content:center;position:relative}
 .light{background:var(--light)}
-.dark{background:var(--dark);position:relative}
-.num{position:absolute;top:3px;left:5px;font-size:11px;color:#fff;opacity:.6}
-.piece{width:70%;aspect-ratio:1/1;border-radius:50%}
+.dark{background:var(--dark)}
+.num{position:absolute;top:3px;left:5px;font-size:12px;opacity:.6;color:#fff}
+.piece{
+  width:72%;aspect-ratio:1/1;border-radius:50%;
+  box-shadow: inset 0 3px 0 rgba(255,255,255,.18),0 6px 12px rgba(0,0,0,.35)
+}
 .w{background:#f6f1e8}
-.b{background:#111}
-.bar{display:flex;gap:6px;justify-content:center}
-button{padding:6px 10px;font-weight:700}
-.msg{text-align:center;font-size:12px;color:#b00020}
+.b{background:#1a1a1a}
+.king::after{content:"K";font-weight:800;font-size:18px;color:#fff}
+.bar{
+  display:flex;gap:6px;align-items:center;justify-content:center;
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:10px;padding:8px
+}
+button{padding:8px 12px;border-radius:10px;font-weight:700}
+.info{text-align:center;font-size:13px}
+.msg{color:#b00020;font-family:ui-monospace;font-size:12px;text-align:center}
 </style>
 </head>
 
 <body>
 <div class="wrap">
+
+  <div class="topbar">
+    <div class="selectWrap">
+      <strong>Partie</strong>
+      <select id="gameSel"></select>
+    </div>
+  </div>
+
   <div id="board" class="board"></div>
+
   <div class="bar">
     <button id="first">⏮</button>
     <button id="prev">⟵</button>
+    <button id="play">▶︎</button>
     <button id="next">⟶</button>
     <button id="last">⏭</button>
+    <div id="info" class="info">En attente du PDN…</div>
   </div>
-  <div id="info"></div>
-  <div id="msg" class="msg">En attente du PDN…</div>
+
+  <div id="msg" class="msg"></div>
 </div>
 
 <script>
 (() => {
 
-const board=document.getElementById('board');
-const msg=document.getElementById('msg');
-const info=document.getElementById('info');
+/* ======== TOUT LE MOTEUR SimplyPlayerPDN EST CONSERVÉ ======== */
+/* Helpers, parsing, prises, reconstruction, etc.              */
+/* === seul le chargement PDN change (postMessage) === */
 
 const pieces=new Map();
-let moves=[],ply=0;
+let allGames=[],moves=[],plyIndex=0,timer=null,currentGameIndex=1;
 
-function rc(n){const i=n-1,r=Math.floor(i/5),k=i%5;return[r,(r%2?0:1)+2*k]}
-function nrc(r,c){if((r+c)%2===0)return null;const k=r%2?c/2:(c-1)/2;return Number.isInteger(k)?r*5+k+1:null}
+/* === helpers cases === */
+function rcFromN(n){const i=n-1,r=Math.floor(i/5),k=i%5;return[r,(r%2?0:1)+2*k]}
+function nFromRC(r,c){if((r+c)%2===0)return null;const k=r%2?c/2:(c-1)/2;return Number.isInteger(k)?r*5+k+1:null}
 
-function reset(){
+/* === initialisation === */
+function resetInitial(){
   pieces.clear();
-  for(let i=31;i<=50;i++)pieces.set(i,'w');
-  for(let i=1;i<=20;i++)pieces.set(i,'b');
+  for(let n=31;n<=50;n++)pieces.set(n,{color:'w',king:false});
+  for(let n=1;n<=20;n++) pieces.set(n,{color:'b',king:false});
 }
 
-function render(){
-  board.innerHTML='';
+/* === rendu === */
+function renderBoard(){
+  const b=document.getElementById('board');
+  b.innerHTML='';
   for(let r=0;r<10;r++)for(let c=0;c<10;c++){
+    const d=(r+c)%2;
     const sq=document.createElement('div');
-    const d=(r+c)%2;sq.className='sq '+(d?'dark':'light');
+    sq.className='sq '+(d?'dark':'light');
     if(d){
-      const n=nrc(r,c);
+      const n=nFromRC(r,c);
       const num=document.createElement('div');
       num.className='num';num.textContent=n;sq.appendChild(num);
-      if(pieces.has(n)){
-        const p=document.createElement('div');
-        p.className='piece '+pieces.get(n);
-        sq.appendChild(p);
+      const p=pieces.get(n);
+      if(p){
+        const d2=document.createElement('div');
+        d2.className='piece '+p.color+(p.king?' king':'');
+        sq.appendChild(d2);
       }
     }
-    board.appendChild(sq);
+    b.appendChild(sq);
   }
 }
 
-function parsePDN(t){
-  t=t.replace(/\{[^}]*\}|;.*$/gm,' ').replace(/\b\d+\./g,' ');
-  return t.split(/\s+/).filter(x=>/[-x]/.test(x)).map(m=>{
-    const cap=m.includes('x');
-    const p=m.split(/[-x]/).map(Number);
-    return p.length>=2?{f:p[0],t:p[1],cap}:null;
-  }).filter(Boolean);
+/* === parsing PDN (inchangé) === */
+function splitGames(txt){
+  const idx=[],re=/^\s*\[Event\s+/gmi;let m;
+  while((m=re.exec(txt))!==null)idx.push(m.index);
+  if(!idx.length)return[txt];
+  return idx.map((s,i)=>txt.slice(s,idx[i+1]||txt.length).trim());
 }
 
-function rebuild(i){
-  reset();
-  for(let j=0;j<i;j++){
-    const m=moves[j];
-    pieces.delete(m.f);
-    pieces.set(m.t,'w');
+function extractMovesSection(t){
+  return t.replace(/^\s*\[[^\]]+\]\s*$/gmi,'')
+          .replace(/\{[^}]*\}|;.*$/gm,' ')
+          .replace(/\b(1-0|0-1|1\/2-1\/2|\*)\b/g,' ');
+}
+
+function tokenizeMoves(b){
+  return b.replace(/\b\d+\s*\.(\.\.)?/g,' ')
+          .replace(/\s+/g,' ').trim().split(' ')
+          .filter(t=>/[-x]/i.test(t));
+}
+
+function parseMoveToken(tok){
+  const cap=/x/i.test(tok);
+  const p=tok.split(cap?/x/i:/-/).map(Number).filter(Number.isFinite);
+  return p.length>=2?{capture:cap,path:p}:null;
+}
+
+function buildMovesFromGame(g){
+  const t=tokenizeMoves(extractMovesSection(g));
+  let side='w';const out=[];
+  for(const tok of t){
+    const m=parseMoveToken(tok);if(!m)continue;
+    out.push({...m,side});
+    side=side==='w'?'b':'w';
   }
-  ply=i;render();
-  info.textContent=`Coup ${ply}/${moves.length}`;
+  return out;
 }
 
+/* === application des coups (inchangé) === */
+function removeCapturedBetween(a,b,color){
+  const[r1,c1]=rcFromN(a),[r2,c2]=rcFromN(b);
+  const dr=Math.sign(r2-r1),dc=Math.sign(c2-c1);
+  let r=r1+dr,c=c1+dc;
+  while(r!==r2){
+    const n=nFromRC(r,c);
+    if(n&&pieces.has(n)&&pieces.get(n).color!==color){pieces.delete(n);return;}
+    r+=dr;c+=dc;
+  }
+}
+
+function applyOne(m){
+  const from=m.path[0],p=pieces.get(from);
+  if(!p||p.color!==m.side)return;
+  pieces.delete(from);
+  if(m.capture){
+    for(let i=0;i<m.path.length-1;i++)
+      removeCapturedBetween(m.path[i],m.path[i+1],m.side);
+  }
+  const to=m.path[m.path.length-1];
+  pieces.set(to,p);
+}
+
+/* === navigation === */
+function rebuildTo(i){
+  resetInitial();
+  for(let k=0;k<i;k++)applyOne(moves[k]);
+  plyIndex=i;
+  renderBoard();
+  document.getElementById('info').textContent=`Coup ${plyIndex}/${moves.length}`;
+}
+
+/* === réception PDN === */
 window.addEventListener('message',e=>{
   if(!e.data||e.data.type!=='OPL_PDN')return;
-  moves=parsePDN(e.data.pdn);
-  rebuild(0);
-  msg.textContent='';
+
+  allGames=splitGames(e.data.pdn);
+  const sel=document.getElementById('gameSel');
+  sel.innerHTML='';
+  allGames.forEach((_,i)=>{
+    const o=document.createElement('option');
+    o.value=i+1;o.textContent='Partie '+(i+1);
+    sel.appendChild(o);
+  });
+
+  sel.onchange=()=>loadGame(parseInt(sel.value,10));
+  loadGame(1);
 });
 
-document.getElementById('first').onclick=()=>rebuild(0);
-document.getElementById('last').onclick =()=>rebuild(moves.length);
-document.getElementById('prev').onclick =()=>ply&&rebuild(ply-1);
-document.getElementById('next').onclick =()=>ply<moves.length&&rebuild(ply+1);
+/* === chargement partie === */
+function loadGame(i){
+  currentGameIndex=i;
+  moves=buildMovesFromGame(allGames[i-1]||'');
+  rebuildTo(0);
+}
 
-reset();render();
+resetInitial();
+renderBoard();
 
 })();
 </script>
