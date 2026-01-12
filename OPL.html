@@ -1,216 +1,619 @@
 <!doctype html>
 <html lang="fr">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>SimplyPlayerPDN – OPL</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>OPL – SimplyPlayerPDN (postMessage)</title>
 
-<style>
-/* === STYLE IDENTIQUE À SimplyPlayerPDN === */
-:root{
-  --panel:#f3efe6;
-  --border:#d8cfbf;
-  --light:#efe4cf;
-  --dark:#a8743a;
-  --w:480px;
-}
-html,body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial}
-body{background:#fff;display:flex;justify-content:center;padding:12px}
-.wrap{width:var(--w);display:flex;flex-direction:column;gap:10px}
-.topbar{display:flex;gap:10px}
-.selectWrap{display:flex;gap:8px;width:100%}
-.board{
-  width:100%;aspect-ratio:1/1;display:grid;
-  grid-template:repeat(10,1fr)/repeat(10,1fr);
-  border-radius:10px;overflow:hidden;
-  box-shadow:0 8px 30px rgba(0,0,0,.2)
-}
-.sq{display:flex;align-items:center;justify-content:center;position:relative}
-.light{background:var(--light)}
-.dark{background:var(--dark)}
-.num{position:absolute;top:3px;left:5px;font-size:12px;opacity:.6;color:#fff}
-.piece{
-  width:72%;aspect-ratio:1/1;border-radius:50%;
-  box-shadow: inset 0 3px 0 rgba(255,255,255,.18),0 6px 12px rgba(0,0,0,.35)
-}
-.w{background:#f6f1e8}
-.b{background:#1a1a1a}
-.king::after{content:"K";font-weight:800;font-size:18px;color:#fff}
-.bar{
-  display:flex;gap:6px;align-items:center;justify-content:center;
-  background:var(--panel);border:1px solid var(--border);
-  border-radius:10px;padding:8px
-}
-button{padding:8px 12px;border-radius:10px;font-weight:700}
-.info{text-align:center;font-size:13px}
-.msg{color:#b00020;font-family:ui-monospace;font-size:12px;text-align:center}
-</style>
+  <style>
+    :root{
+      --panel:#f3efe6;
+      --border:#d8cfbf;
+      --light:#efe4cf;
+      --dark:#a8743a;
+      --w: 480px;
+    }
+
+    html,body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial}
+    body{
+      background:#fff;
+      display:flex;
+      align-items:flex-start;
+      justify-content:center;
+      padding:12px;
+    }
+
+    .wrap{
+      width:var(--w);
+      max-width:var(--w);
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:flex-start;
+      gap:10px;
+    }
+    .selectWrap{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-size:13px;
+      color:#3b2a16;
+      width:100%;
+    }
+    .selectWrap strong{white-space:nowrap}
+    select{
+      width:100%;
+      max-width:360px;
+      padding:8px 10px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:#fff;
+      font-size:13px;
+      outline:none;
+    }
+
+    .board{
+      width:100%;
+      aspect-ratio:1/1;
+      display:grid;
+      grid-template-columns:repeat(10,1fr);
+      grid-template-rows:repeat(10,1fr);
+      border:0;
+      outline:1px solid rgba(0,0,0,.12);
+      border-radius:10px;
+      overflow:hidden;
+      box-shadow:0 8px 30px rgba(0,0,0,.20);
+      background:#000;
+    }
+
+    .sq{
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-width:0;
+      min-height:0;
+    }
+    .light{background:var(--light)}
+    .dark{background:var(--dark)}
+
+    .num{
+      position:absolute;
+      top:3px; left:5px;
+      font-size:12px;
+      opacity:.55;
+      color:#000;
+      user-select:none;
+      pointer-events:none;
+    }
+    .dark .num{color:#fff; opacity:.65}
+
+    .piece{
+      width:72%;
+      aspect-ratio:1/1;
+      border-radius:50%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow: inset 0 3px 0 rgba(255,255,255,.18), 0 6px 12px rgba(0,0,0,.35);
+      border:1px solid rgba(0,0,0,.35);
+    }
+    .w{background:#f6f1e8}
+    .b{background:#1a1a1a}
+    .king::after{
+      content:"K";
+      font-weight:800;
+      font-size:18px;
+      color:rgba(255,255,255,.85);
+      text-shadow:0 1px 0 rgba(0,0,0,.6);
+    }
+    .w.king::after{color:rgba(0,0,0,.75); text-shadow:none}
+
+    .bar{
+      display:flex;
+      gap:6px;
+      align-items:center;
+      justify-content:center;
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:8px;
+    }
+    button{
+      padding:8px 12px;
+      border-radius:10px;
+      border:1px solid #cdbfa9;
+      background:#fff;
+      cursor:pointer;
+      font-weight:700;
+      min-width:44px;
+      font-size:14px;
+      line-height:1;
+    }
+    button:disabled{opacity:.55; cursor:not-allowed}
+
+    .info{
+      flex:1;
+      text-align:center;
+      font-size:13px;
+      color:#3b2a16;
+      user-select:none;
+      padding:0 8px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      min-width:0;
+    }
+
+    .msg{
+      color:#b00020;
+      font-family:ui-monospace,Consolas,monospace;
+      font-size:12px;
+      text-align:center;
+      opacity:.95;
+      min-height:16px;
+    }
+  </style>
 </head>
 
 <body>
-<div class="wrap">
+  <div class="wrap">
 
-  <div class="topbar">
-    <div class="selectWrap">
-      <strong>Partie</strong>
-      <select id="gameSel"></select>
+    <div class="topbar">
+      <div class="selectWrap">
+        <strong>Partie</strong>
+        <select id="gameSel" aria-label="Sélection de la partie">
+          <option value="1">En attente…</option>
+        </select>
+      </div>
     </div>
+
+    <div id="board" class="board" aria-label="Damier"></div>
+
+    <div class="bar">
+      <button id="first" title="Début de la partie">⏮</button>
+      <button id="prev"  title="Coup précédent">⟵</button>
+      <button id="play"  title="Lecture / Pause">▶︎</button>
+      <button id="next"  title="Coup suivant">⟶</button>
+      <button id="last"  title="Fin de la partie">⏭</button>
+      <div id="info" class="info">En attente du PDN…</div>
+    </div>
+
+    <div id="msg" class="msg"></div>
   </div>
-
-  <div id="board" class="board"></div>
-
-  <div class="bar">
-    <button id="first">⏮</button>
-    <button id="prev">⟵</button>
-    <button id="play">▶︎</button>
-    <button id="next">⟶</button>
-    <button id="last">⏭</button>
-    <div id="info" class="info">En attente du PDN…</div>
-  </div>
-
-  <div id="msg" class="msg"></div>
-</div>
 
 <script>
 (() => {
+  // ---------- Helpers: 1..50 <-> (r,c) sur cases noires 10x10 ----------
+  function rcFromN(n){
+    const i = n - 1;
+    const r = Math.floor(i / 5);
+    const k = i % 5;
+    const c = (r % 2 === 0) ? (1 + 2*k) : (0 + 2*k);
+    return [r,c];
+  }
+  function nFromRC(r,c){
+    if ((r+c)%2===0) return null;
+    const k = (r%2===0) ? (c-1)/2 : c/2;
+    if (!Number.isInteger(k) || k<0 || k>4) return null;
+    return r*5 + k + 1;
+  }
+  function inside(r,c){ return r>=0 && r<10 && c>=0 && c<10; }
 
-/* ======== TOUT LE MOTEUR SimplyPlayerPDN EST CONSERVÉ ======== */
-/* Helpers, parsing, prises, reconstruction, etc.              */
-/* === seul le chargement PDN change (postMessage) === */
+  // ---------- Board model ----------
+  const pieces = new Map(); // pieces[n] = {color:'w'|'b', king:boolean}
 
-const pieces=new Map();
-let allGames=[],moves=[],plyIndex=0,timer=null,currentGameIndex=1;
+  function resetInitial(){
+    pieces.clear();
+    for (let n=31;n<=50;n++) pieces.set(n,{color:'w',king:false});
+    for (let n=1;n<=20;n++)  pieces.set(n,{color:'b',king:false});
+  }
 
-/* === helpers cases === */
-function rcFromN(n){const i=n-1,r=Math.floor(i/5),k=i%5;return[r,(r%2?0:1)+2*k]}
-function nFromRC(r,c){if((r+c)%2===0)return null;const k=r%2?c/2:(c-1)/2;return Number.isInteger(k)?r*5+k+1:null}
+  function promoteIfNeeded(n){
+    const p = pieces.get(n);
+    if (!p || p.king) return;
+    const [r] = rcFromN(n);
+    if (p.color==='w' && r===0) p.king=true;
+    if (p.color==='b' && r===9) p.king=true;
+  }
 
-/* === initialisation === */
-function resetInitial(){
-  pieces.clear();
-  for(let n=31;n<=50;n++)pieces.set(n,{color:'w',king:false});
-  for(let n=1;n<=20;n++) pieces.set(n,{color:'b',king:false});
-}
+  function renderBoard(){
+    const board = document.getElementById('board');
+    board.innerHTML = '';
+    for (let r=0;r<10;r++){
+      for (let c=0;c<10;c++){
+        const sq = document.createElement('div');
+        const dark = (r+c)%2===1;
+        sq.className = 'sq ' + (dark?'dark':'light');
 
-/* === rendu === */
-function renderBoard(){
-  const b=document.getElementById('board');
-  b.innerHTML='';
-  for(let r=0;r<10;r++)for(let c=0;c<10;c++){
-    const d=(r+c)%2;
-    const sq=document.createElement('div');
-    sq.className='sq '+(d?'dark':'light');
-    if(d){
-      const n=nFromRC(r,c);
-      const num=document.createElement('div');
-      num.className='num';num.textContent=n;sq.appendChild(num);
-      const p=pieces.get(n);
-      if(p){
-        const d2=document.createElement('div');
-        d2.className='piece '+p.color+(p.king?' king':'');
-        sq.appendChild(d2);
+        if (dark){
+          const n = nFromRC(r,c);
+          const num = document.createElement('div');
+          num.className='num';
+          num.textContent = n;
+          sq.appendChild(num);
+
+          const p = pieces.get(n);
+          if (p){
+            const d = document.createElement('div');
+            d.className = 'piece ' + p.color + (p.king?' king':'');
+            sq.appendChild(d);
+          }
+        }
+        board.appendChild(sq);
       }
     }
-    b.appendChild(sq);
   }
-}
 
-/* === parsing PDN (inchangé) === */
-function splitGames(txt){
-  const idx=[],re=/^\s*\[Event\s+/gmi;let m;
-  while((m=re.exec(txt))!==null)idx.push(m.index);
-  if(!idx.length)return[txt];
-  return idx.map((s,i)=>txt.slice(s,idx[i+1]||txt.length).trim());
-}
+  // ---------- PDN parsing ----------
+  function splitGames(pdnText){
+    const txt = pdnText.replace(/\r\n/g, '\n');
+    const idx = [];
+    const re = /^\s*\[Event\s+/gmi;
+    let m;
+    while ((m = re.exec(txt)) !== null) idx.push(m.index);
+    if (idx.length===0) return [txt.trim()];
 
-function extractMovesSection(t){
-  return t.replace(/^\s*\[[^\]]+\]\s*$/gmi,'')
-          .replace(/\{[^}]*\}|;.*$/gm,' ')
-          .replace(/\b(1-0|0-1|1\/2-1\/2|\*)\b/g,' ');
-}
-
-function tokenizeMoves(b){
-  return b.replace(/\b\d+\s*\.(\.\.)?/g,' ')
-          .replace(/\s+/g,' ').trim().split(' ')
-          .filter(t=>/[-x]/i.test(t));
-}
-
-function parseMoveToken(tok){
-  const cap=/x/i.test(tok);
-  const p=tok.split(cap?/x/i:/-/).map(Number).filter(Number.isFinite);
-  return p.length>=2?{capture:cap,path:p}:null;
-}
-
-function buildMovesFromGame(g){
-  const t=tokenizeMoves(extractMovesSection(g));
-  let side='w';const out=[];
-  for(const tok of t){
-    const m=parseMoveToken(tok);if(!m)continue;
-    out.push({...m,side});
-    side=side==='w'?'b':'w';
+    const games = [];
+    for (let i=0;i<idx.length;i++){
+      const start = idx[i];
+      const end = (i+1<idx.length) ? idx[i+1] : txt.length;
+      const g = txt.slice(start,end).trim();
+      if (g) games.push(g);
+    }
+    return games.length ? games : [txt.trim()];
   }
-  return out;
-}
 
-/* === application des coups (inchangé) === */
-function removeCapturedBetween(a,b,color){
-  const[r1,c1]=rcFromN(a),[r2,c2]=rcFromN(b);
-  const dr=Math.sign(r2-r1),dc=Math.sign(c2-c1);
-  let r=r1+dr,c=c1+dc;
-  while(r!==r2){
-    const n=nFromRC(r,c);
-    if(n&&pieces.has(n)&&pieces.get(n).color!==color){pieces.delete(n);return;}
-    r+=dr;c+=dc;
+  function getTag(gameText, name){
+    const re = new RegExp('^\\s*\\['+name+'\\s+"([^"]*)"\\]\\s*$', 'mi');
+    const m = gameText.match(re);
+    return m ? m[1] : '';
   }
-}
 
-function applyOne(m){
-  const from=m.path[0],p=pieces.get(from);
-  if(!p||p.color!==m.side)return;
-  pieces.delete(from);
-  if(m.capture){
-    for(let i=0;i<m.path.length-1;i++)
-      removeCapturedBetween(m.path[i],m.path[i+1],m.side);
+  function extractMovesSection(gameText){
+    let body = gameText.replace(/^\s*\[[^\]]+\]\s*$/gmi, '');
+    body = body.replace(/\{[^}]*\}/g, ' ');
+    body = body.replace(/;[^\n]*$/gm, ' ');
+    body = body.replace(/\b(1-0|0-1|1\/2-1\/2|\*)\b/g, ' ');
+    return body;
   }
-  const to=m.path[m.path.length-1];
-  pieces.set(to,p);
-}
 
-/* === navigation === */
-function rebuildTo(i){
-  resetInitial();
-  for(let k=0;k<i;k++)applyOne(moves[k]);
-  plyIndex=i;
-  renderBoard();
-  document.getElementById('info').textContent=`Coup ${plyIndex}/${moves.length}`;
-}
+  function tokenizeMoves(body){
+    body = body.replace(/\b\d+\s*\.(\.\.)?/g, ' ');
+    body = body.replace(/\s+/g, ' ').trim();
+    if (!body) return [];
+    const raw = body.split(' ');
+    const tokens = [];
+    for (const t of raw){
+      const u = t.trim();
+      if (!u) continue;
+      if (/^\$?\d+$/.test(u)) continue;
+      tokens.push(u);
+    }
+    return tokens;
+  }
 
-/* === réception PDN === */
-window.addEventListener('message',e=>{
-  if(!e.data||e.data.type!=='OPL_PDN')return;
+  function parseMoveToken(tok){
+    const isCap = tok.includes('x') || tok.includes('X');
+    const sep = isCap ? /x|X/ : /-/;
+    const parts = tok.split(sep).map(s=>parseInt(s,10)).filter(n=>Number.isFinite(n));
+    if (parts.length<2) return null;
+    return { capture:isCap, path:parts, raw:tok };
+  }
 
-  allGames=splitGames(e.data.pdn);
-  const sel=document.getElementById('gameSel');
-  sel.innerHTML='';
-  allGames.forEach((_,i)=>{
-    const o=document.createElement('option');
-    o.value=i+1;o.textContent='Partie '+(i+1);
-    sel.appendChild(o);
+  function buildMovesFromGame(gameText){
+    const body = extractMovesSection(gameText);
+    const tokens = tokenizeMoves(body);
+    const parsed = [];
+    let side = 'w';
+    for (const tok of tokens){
+      const mo = parseMoveToken(tok);
+      if (!mo) continue;
+      parsed.push({ ...mo, side });
+      side = (side==='w') ? 'b' : 'w';
+    }
+    return parsed;
+  }
+
+  // ---------- Capture path reconstruction (short capture A x B) ----------
+  function clonePiecesMap(src){
+    const m = new Map();
+    for (const [k,v] of src.entries()) m.set(k, {color:v.color, king:!!v.king});
+    return m;
+  }
+  function opponent(color){ return color === 'w' ? 'b' : 'w'; }
+
+  function findUniqueCapturePath(from, to, side, isKing){
+    const startMap = clonePiecesMap(pieces);
+    const opp = opponent(side);
+    const results = [];
+
+    function manCapturesFrom(pos, map){
+      const [r,c] = rcFromN(pos);
+      const dirs = [[-1,-1],[-1,1],[1,-1],[1,1]];
+      const out = [];
+      for (const [dr,dc] of dirs){
+        const r1=r+dr, c1=c+dc;
+        const r2=r+2*dr, c2=c+2*dc;
+        if (!inside(r2,c2)) continue;
+        const mid = nFromRC(r1,c1);
+        const land = nFromRC(r2,c2);
+        if (!mid || !land) continue;
+        const mp = map.get(mid);
+        if (!mp || mp.color !== opp) continue;
+        if (map.has(land)) continue;
+        out.push({ land, cap: mid });
+      }
+      return out;
+    }
+
+    function kingCapturesFrom(pos, map){
+      const [r,c] = rcFromN(pos);
+      const dirs = [[-1,-1],[-1,1],[1,-1],[1,1]];
+      const out = [];
+      for (const [dr,dc] of dirs){
+        let rr=r+dr, cc=c+dc;
+        let firstPieceN = null;
+        while (inside(rr,cc)){
+          const nn = nFromRC(rr,cc);
+          if (!nn){ rr+=dr; cc+=dc; continue; }
+          if (map.has(nn)){ firstPieceN = nn; break; }
+          rr+=dr; cc+=dc;
+        }
+        if (!firstPieceN) continue;
+        const fp = map.get(firstPieceN);
+        if (!fp || fp.color !== opp) continue;
+
+        rr += dr; cc += dc;
+        while (inside(rr,cc)){
+          const nn = nFromRC(rr,cc);
+          if (!nn){ rr+=dr; cc+=dc; continue; }
+          if (map.has(nn)) break;
+          out.push({ land: nn, cap: firstPieceN });
+          rr+=dr; cc+=dc;
+        }
+      }
+      return out;
+    }
+
+    function dfs(current, map, path){
+      if (results.length > 1) return;
+      if (current === to && path.length > 1){
+        results.push(path.slice());
+        return;
+      }
+      const nexts = isKing ? kingCapturesFrom(current, map) : manCapturesFrom(current, map);
+      if (nexts.length === 0) return;
+
+      for (const mv of nexts){
+        const map2 = clonePiecesMap(map);
+        const piece = map2.get(current);
+        if (!piece) continue;
+        map2.delete(current);
+        map2.delete(mv.cap);
+        map2.set(mv.land, piece);
+
+        const path2 = path.slice();
+        path2.push(mv.land);
+        dfs(mv.land, map2, path2);
+        if (results.length > 1) return;
+      }
+    }
+
+    const p0 = startMap.get(from);
+    if (!p0 || p0.color !== side) return null;
+
+    dfs(from, startMap, [from]);
+    return (results.length === 1) ? results[0] : null;
+  }
+
+  // ---------- Apply moves ----------
+  function removeCapturedBetween(a,b,color){
+    const [r1,c1] = rcFromN(a);
+    const [r2,c2] = rcFromN(b);
+    const dr = Math.sign(r2-r1);
+    const dc = Math.sign(c2-c1);
+    if (dr===0 || dc===0) return;
+
+    let r=r1+dr, c=c1+dc;
+    while (r!==r2 && c!==c2){
+      const n = nFromRC(r,c);
+      if (n && pieces.has(n)){
+        const p = pieces.get(n);
+        if (p.color !== color){
+          pieces.delete(n);
+          return;
+        }
+      }
+      r+=dr; c+=dc;
+    }
+  }
+
+  function applyOne(moveObj, side){
+    let {capture, path} = moveObj;
+    const from = path[0];
+    const piece = pieces.get(from);
+    if (!piece || piece.color !== side) return false;
+
+    // capture courte A x B => reconstruire si possible
+    if (capture && path.length === 2){
+      const to = path[1];
+      const full = findUniqueCapturePath(from, to, side, !!piece.king);
+      if (full) path = full;
+    }
+
+    pieces.delete(from);
+
+    if (capture){
+      for (let i=0;i<path.length-1;i++){
+        removeCapturedBetween(path[i], path[i+1], side);
+      }
+    }
+
+    const to = path[path.length-1];
+    pieces.set(to, piece);
+    promoteIfNeeded(to);
+    return true;
+  }
+
+  // ---------- Controls ----------
+  const firstBtn = document.getElementById('first');
+  const prevBtn  = document.getElementById('prev');
+  const playBtn  = document.getElementById('play');
+  const nextBtn  = document.getElementById('next');
+  const lastBtn  = document.getElementById('last');
+  const info     = document.getElementById('info');
+  const msg      = document.getElementById('msg');
+  const gameSel  = document.getElementById('gameSel');
+
+  let moves = [];
+  let plyIndex = 0;
+  let timer = null;
+
+  let allGames = [];
+  let currentGameIndex = 1;
+
+  function stop(){
+    if (timer){ clearInterval(timer); timer=null; }
+    playBtn.textContent = '▶︎';
+  }
+
+  function showError(t){ msg.textContent = t || ''; }
+
+  function updateUI(meta=''){
+    firstBtn.disabled = (plyIndex===0);
+    prevBtn.disabled  = (plyIndex===0);
+    nextBtn.disabled  = (plyIndex===moves.length);
+    lastBtn.disabled  = (plyIndex===moves.length);
+    info.textContent = `Coup ${plyIndex}/${moves.length}` + (meta ? ` — ${meta}` : '');
+  }
+
+  function rebuildTo(index){
+    resetInitial();
+    for (let i=0;i<index;i++){
+      applyOne(moves[i], moves[i].side);
+    }
+    plyIndex = index;
+    renderBoard();
+    updateUI(buildMeta());
+  }
+
+  function stepNext(){
+    if (plyIndex>=moves.length) { stop(); return; }
+    const m = moves[plyIndex];
+    applyOne(m, m.side);
+    plyIndex++;
+    renderBoard();
+    updateUI(buildMeta());
+  }
+
+  function stepPrev(){
+    if (plyIndex<=0) return;
+    rebuildTo(plyIndex-1);
+  }
+
+  function goFirst(){ stop(); rebuildTo(0); }
+  function goLast(){ stop(); rebuildTo(moves.length); }
+
+  firstBtn.addEventListener('click', goFirst);
+  lastBtn.addEventListener('click', goLast);
+  prevBtn.addEventListener('click', () => { stop(); stepPrev(); });
+  nextBtn.addEventListener('click', () => { stop(); stepNext(); });
+
+  playBtn.addEventListener('click', () => {
+    if (timer){ stop(); return; }
+    timer = setInterval(() => {
+      if (plyIndex>=moves.length){ stop(); return; }
+      stepNext();
+    }, 650);
+    playBtn.textContent = '⏸';
   });
 
-  sel.onchange=()=>loadGame(parseInt(sel.value,10));
-  loadGame(1);
-});
+  function fillSelector(){
+    gameSel.innerHTML = '';
+    for (let i=0;i<allGames.length;i++){
+      const g = allGames[i];
+      const white = getTag(g,'White');
+      const black = getTag(g,'Black');
+      const event = getTag(g,'Event');
+      const opt = document.createElement('option');
+      opt.value = String(i+1);
+      const labelPlayers = (white||black) ? `${white} / ${black}` : '';
+      opt.textContent = [`Partie ${i+1}`, labelPlayers, event].filter(Boolean).join(' — ');
+      gameSel.appendChild(opt);
+    }
+    gameSel.value = String(currentGameIndex);
+  }
 
-/* === chargement partie === */
-function loadGame(i){
-  currentGameIndex=i;
-  moves=buildMovesFromGame(allGames[i-1]||'');
-  rebuildTo(0);
-}
+  function buildMeta(){
+    const gameText = allGames[currentGameIndex-1] || '';
+    const event = getTag(gameText, 'Event');
+    const date  = getTag(gameText, 'Date');
+    const white = getTag(gameText, 'White');
+    const black = getTag(gameText, 'Black');
+    return [`Partie ${currentGameIndex}`, event, date, (white && black) ? (white+' / '+black) : '']
+      .filter(Boolean).join(' — ');
+  }
 
-resetInitial();
-renderBoard();
+  function setGame(index){
+    stop();
+    currentGameIndex = Math.max(1, Math.min(index, allGames.length || 1));
+    const gameText = allGames[currentGameIndex-1] || allGames[0] || '';
+    moves = buildMovesFromGame(gameText);
+    rebuildTo(0);
+    fillSelector();
+    showError(moves.length ? '' : 'PDN chargé, mais aucun coup détecté.');
+  }
+
+  gameSel.addEventListener('change', () => {
+    const v = parseInt(gameSel.value, 10);
+    if (!Number.isFinite(v)) return;
+    setGame(v);
+  });
+
+  function snapBoardSize(){
+    const max = 480;
+    const desired = Math.min(window.innerWidth * 0.88, max);
+    const snapped = Math.max(300, Math.floor(desired / 10) * 10);
+    document.documentElement.style.setProperty('--w', snapped + 'px');
+  }
+  window.addEventListener('resize', snapBoardSize);
+  setTimeout(snapBoardSize, 0);
+  setTimeout(snapBoardSize, 200);
+
+  // ======== IMPORTANT : entrée PDN via postMessage ========
+  function loadFromPDNText(pdnText){
+    try{
+      allGames = splitGames(pdnText || '');
+      currentGameIndex = 1;
+      fillSelector();
+      setGame(1);
+      updateUI(buildMeta());
+      showError('');
+    } catch(e){
+      updateUI('Erreur PDN');
+      showError('PDN non lisible : ' + (e && e.message ? e.message : e));
+    }
+  }
+
+  // Affichage initial (attente)
+  resetInitial();
+  renderBoard();
+  updateUI('En attente du PDN…');
+  showError('En attente de la partie (postMessage)…');
+
+  // Réception du PDN
+  window.addEventListener('message', (e) => {
+    if (!e.data || e.data.type !== 'OPL_PDN') return;
+    if (typeof e.data.pdn !== 'string' || !e.data.pdn.trim()) return;
+    stop();
+    loadFromPDNText(e.data.pdn);
+  });
 
 })();
 </script>
