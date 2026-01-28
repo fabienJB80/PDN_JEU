@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>OPL2 – PDN + FEN + Variantes + Annotations</title>
+  <title>OPL2 – Lecteur PDN (FEN + variantes + annotations)</title>
 
   <style>
     :root{
@@ -33,12 +33,7 @@
       gap:10px;
     }
 
-    .topbar{
-      display:flex;
-      gap:10px;
-      align-items:center;
-    }
-
+    .topbar{display:flex; gap:10px; align-items:center}
     .selectWrap{
       display:flex;
       align-items:center;
@@ -51,7 +46,6 @@
     .selectWrap strong{white-space:nowrap}
     select{
       width:100%;
-      max-width:520px;
       padding:8px 10px;
       border-radius:10px;
       border:1px solid var(--border);
@@ -67,7 +61,6 @@
       display:grid;
       grid-template-columns:repeat(10,1fr);
       grid-template-rows:repeat(10,1fr);
-      border:0;
       outline:1px solid rgba(0,0,0,.12);
       border-radius:12px;
       overflow:hidden;
@@ -75,25 +68,14 @@
       background:#000;
     }
 
-    .sq{
-      position:relative;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      min-width:0;
-      min-height:0;
-    }
+    .sq{position:relative; display:flex; align-items:center; justify-content:center}
     .light{background:var(--light)}
     .dark{background:var(--dark)}
 
     .num{
-      position:absolute;
-      top:3px; left:5px;
-      font-size:12px;
-      opacity:.55;
-      color:#000;
-      user-select:none;
-      pointer-events:none;
+      position:absolute; top:3px; left:5px;
+      font-size:12px; opacity:.55; color:#000;
+      user-select:none; pointer-events:none;
     }
     .dark .num{color:#fff; opacity:.65}
 
@@ -119,10 +101,7 @@
     .w.king::after{color:rgba(0,0,0,.75); text-shadow:none}
 
     .bar{
-      display:flex;
-      gap:6px;
-      align-items:center;
-      justify-content:center;
+      display:flex; gap:6px; align-items:center; justify-content:center;
       background:var(--panel);
       border:1px solid var(--border);
       border-radius:12px;
@@ -155,21 +134,7 @@
       min-width:0;
     }
 
-    .msg{
-      color:#b00020;
-      font-family:ui-monospace,Consolas,monospace;
-      font-size:12px;
-      text-align:center;
-      opacity:.95;
-      min-height:16px;
-    }
-
-    .panels{
-      display:grid;
-      grid-template-columns: 1fr;
-      gap:10px;
-    }
-
+    .panels{display:grid; grid-template-columns:1fr; gap:10px}
     .panel{
       background:#fff;
       border:1px solid var(--border);
@@ -177,49 +142,26 @@
       padding:10px;
       box-shadow:0 4px 14px rgba(0,0,0,.08);
     }
-    .panel h3{
-      margin:0 0 8px 0;
-      font-size:13px;
-      color:var(--muted);
-      letter-spacing:.2px;
-    }
+    .panel h3{margin:0 0 8px 0; font-size:13px; color:var(--muted)}
+    .commentMeta{font-size:12px; color:var(--muted); opacity:.9; margin:0 0 6px 0}
+    .commentBox{font-size:13px; line-height:1.35; white-space:pre-wrap; word-break:break-word}
 
-    .commentBox{
-      font-size:13px;
-      line-height:1.35;
-      color:var(--ink);
-      white-space:pre-wrap;
-      word-break:break-word;
-    }
-    .commentMeta{
-      font-size:12px;
-      color:var(--muted);
-      opacity:.9;
-      margin:0 0 6px 0;
-    }
-
-    .varsHeader{
-      display:flex;
-      gap:8px;
-      align-items:center;
-      justify-content:space-between;
-      flex-wrap:wrap;
-    }
+    .varsHeader{display:flex; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap}
     .crumb{
-      font-size:12px;
+      font-size:12px; color:var(--muted); opacity:.95;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;
+    }
+    .badge{
+      display:inline-block;
+      padding:2px 8px;
+      border-radius:999px;
+      background:var(--panel);
+      border:1px solid var(--border);
+      font-size:11px;
       color:var(--muted);
-      opacity:.95;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      max-width:100%;
+      font-weight:800;
     }
-
-    .varList{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-    }
+    .varList{display:flex; flex-direction:column; gap:6px}
     .varBtn{
       width:100%;
       text-align:left;
@@ -228,7 +170,7 @@
       border:1px solid var(--border);
       background:#fafafa;
       cursor:pointer;
-      font-weight:700;
+      font-weight:800;
       font-size:13px;
       line-height:1.2;
       color:#2b2b2b;
@@ -241,22 +183,20 @@
       margin-top:2px;
     }
     .varBtn:hover{background:#fff}
-    .badge{
-      display:inline-block;
-      padding:2px 8px;
-      border-radius:999px;
-      background:var(--panel);
-      border:1px solid var(--border);
-      font-size:11px;
-      color:var(--muted);
-      font-weight:800;
+
+    .msg{
+      color:#b00020;
+      font-family:ui-monospace,Consolas,monospace;
+      font-size:12px;
+      text-align:center;
+      opacity:.95;
+      min-height:16px;
     }
   </style>
 </head>
 
 <body>
   <div class="wrap">
-
     <div class="topbar">
       <div class="selectWrap">
         <strong>Partie</strong>
@@ -300,64 +240,54 @@
     <div id="msg" class="msg"></div>
   </div>
 
-  <!-- (Optionnel) PDN embarqué dans l’iframe :
-       <script type="text/plain" id="opl-pdn"> ... </script>
-       Appel : OPL2.html?src=opl-pdn#111
-  -->
-
 <script>
 (() => {
-  // ============================================================
-  //  Helpers: 1..50 <-> (r,c) sur cases noires 10x10
-  // ============================================================
+  // ========== Helpers cases ==========
   function rcFromN(n){
-    const i = n - 1;
-    const r = Math.floor(i / 5);
-    const k = i % 5;
-    const c = (r % 2 === 0) ? (1 + 2*k) : (0 + 2*k);
+    const i=n-1, r=Math.floor(i/5), k=i%5;
+    const c=(r%2===0)?(1+2*k):(0+2*k);
     return [r,c];
   }
   function nFromRC(r,c){
     if ((r+c)%2===0) return null;
-    const k = (r%2===0) ? (c-1)/2 : c/2;
+    const k=(r%2===0)?(c-1)/2:c/2;
     if (!Number.isInteger(k) || k<0 || k>4) return null;
-    return r*5 + k + 1;
+    return r*5+k+1;
   }
-  function inside(r,c){ return r>=0 && r<10 && c>=0 && c<10; }
+  function inside(r,c){ return r>=0&&r<10&&c>=0&&c<10; }
 
-  // ============================================================
-  //  Board model
-  // ============================================================
-  const pieces = new Map(); // n -> {color:'w'|'b', king:boolean}
-
+  // ========== Board model ==========
+  const pieces=new Map();
   function promoteIfNeeded(n){
-    const p = pieces.get(n);
+    const p=pieces.get(n);
     if (!p || p.king) return;
-    const [r] = rcFromN(n);
+    const [r]=rcFromN(n);
     if (p.color==='w' && r===0) p.king=true;
     if (p.color==='b' && r===9) p.king=true;
   }
-
+  function setPiecesFromMap(map){
+    pieces.clear();
+    for (const [k,v] of map.entries()) pieces.set(k,{color:v.color, king:!!v.king});
+  }
   function renderBoard(){
-    const board = document.getElementById('board');
-    board.innerHTML = '';
+    const board=document.getElementById('board');
+    board.innerHTML='';
     for (let r=0;r<10;r++){
       for (let c=0;c<10;c++){
-        const sq = document.createElement('div');
-        const dark = (r+c)%2===1;
-        sq.className = 'sq ' + (dark?'dark':'light');
-
+        const dark=(r+c)%2===1;
+        const sq=document.createElement('div');
+        sq.className='sq '+(dark?'dark':'light');
         if (dark){
-          const n = nFromRC(r,c);
-          const num = document.createElement('div');
+          const n=nFromRC(r,c);
+          const num=document.createElement('div');
           num.className='num';
-          num.textContent = n;
+          num.textContent=n;
           sq.appendChild(num);
 
-          const p = pieces.get(n);
+          const p=pieces.get(n);
           if (p){
-            const d = document.createElement('div');
-            d.className = 'piece ' + p.color + (p.king?' king':'');
+            const d=document.createElement('div');
+            d.className='piece '+p.color+(p.king?' king':'');
             sq.appendChild(d);
           }
         }
@@ -366,390 +296,305 @@
     }
   }
 
-  // ============================================================
-  //  PDN tags / split games
-  // ============================================================
+  // ========== PDN split/tags ==========
   function splitGames(pdnText){
-    const txt = (pdnText||'').replace(/\r\n/g, '\n');
-    const idx = [];
-    const re = /^\s*\[Event\s+/gmi;
+    const txt=(pdnText||'').replace(/\r\n/g,'\n');
+    const idx=[], re=/^\s*\[Event\s+/gmi;
     let m;
-    while ((m = re.exec(txt)) !== null) idx.push(m.index);
-    if (idx.length===0) return [txt.trim()].filter(Boolean);
-
-    const games = [];
+    while ((m=re.exec(txt))!==null) idx.push(m.index);
+    if (!idx.length) return [txt.trim()].filter(Boolean);
+    const games=[];
     for (let i=0;i<idx.length;i++){
-      const start = idx[i];
-      const end = (i+1<idx.length) ? idx[i+1] : txt.length;
-      const g = txt.slice(start,end).trim();
+      const start=idx[i], end=(i+1<idx.length)?idx[i+1]:txt.length;
+      const g=txt.slice(start,end).trim();
       if (g) games.push(g);
     }
-    return games.length ? games : [txt.trim()].filter(Boolean);
+    return games.length?games:[txt.trim()].filter(Boolean);
   }
-
-  function getTag(gameText, name){
-    const re = new RegExp('^\\s*\\['+name+'\\s+"([^"]*)"\\]\\s*$', 'mi');
-    const m = (gameText||'').match(re);
-    return m ? m[1] : '';
+  function getTag(gameText,name){
+    const re=new RegExp('^\\s*\\['+name+'\\s+"([^"]*)"\\]\\s*$','mi');
+    const m=(gameText||'').match(re);
+    return m?m[1]:'';
   }
-
   function extractMovesSectionKeepingVars(gameText){
-    // Supprime uniquement les tags [..] en début de ligne, conserve ( ) et { }
-    let body = (gameText||'').replace(/^\s*\[[^\]]+\]\s*$/gmi, '');
-    // Supprime commentaires ';' fin de ligne (style PGN)
-    body = body.replace(/;[^\n]*$/gm, ' ');
-    // Conserve le résultat mais retire l’instance brute
-    body = body.replace(/\b(1-0|0-1|1\/2-1\/2|1-1|\*)\b/g, ' ');
+    let body=(gameText||'').replace(/^\s*\[[^\]]+\]\s*$/gmi,'');
+    body=body.replace(/;[^\n]*$/gm,' ');
+    body=body.replace(/\b(1-0|0-1|1\/2-1\/2|1-1|\*)\b/g,' ');
     return body;
   }
 
-  // ============================================================
-  //  FEN support (International draughts 10x10)
-  // ============================================================
+  // ========== FEN (10x10) ==========
   function parseFEN10x10(fen){
-    const out = { ok:false, side:'w', pieces:new Map() };
-    if (!fen || typeof fen !== 'string') return out;
-
-    fen = fen.trim();
-    const m = fen.match(/^([WB])\s*:\s*(.+)$/i);
+    const out={ok:false, side:'w', pieces:new Map()};
+    if (!fen || typeof fen!=='string') return out;
+    fen=fen.trim();
+    const m=fen.match(/^([WB])\s*:\s*(.+)$/i);
     if (!m) return out;
-
-    out.side = (m[1].toUpperCase() === 'W') ? 'w' : 'b';
-    const rest = m[2];
-    const segs = rest.split(':').map(s=>s.trim()).filter(Boolean);
-    if (!segs.length) return out;
-
+    out.side=(m[1].toUpperCase()==='W')?'w':'b';
+    const segs=m[2].split(':').map(s=>s.trim()).filter(Boolean);
     function addPiece(color, king, n){
-      if (n<1 || n>50) return;
-      out.pieces.set(n, { color, king:!!king });
+      if (n<1||n>50) return;
+      out.pieces.set(n,{color, king:!!king});
     }
     function parseList(color, listStr){
-      let s = (listStr||'').replace(/\s+/g,'');
+      let s=(listStr||'').replace(/\s+/g,'');
       if (!s) return;
-      const items = s.split(',').filter(Boolean);
-      for (const it0 of items){
-        let king = false;
-        let it = it0;
-        if (it.startsWith('K')){
-          king = true;
-          it = it.slice(1);
-        }
-        const rm = it.match(/^(\d+)-(\d+)$/);
+      const items=s.split(',').filter(Boolean);
+      for (let it of items){
+        let king=false;
+        if (it.startsWith('K')){ king=true; it=it.slice(1); }
+        const rm=it.match(/^(\d+)-(\d+)$/);
         if (rm){
-          let a = parseInt(rm[1],10), b = parseInt(rm[2],10);
-          if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
-          const step = (a<=b) ? 1 : -1;
-          for (let n=a; step>0 ? n<=b : n>=b; n+=step){
-            addPiece(color, king, n);
-          }
+          let a=parseInt(rm[1],10), b=parseInt(rm[2],10);
+          const step=(a<=b)?1:-1;
+          for (let n=a; step>0?n<=b:n>=b; n+=step) addPiece(color,king,n);
           continue;
         }
-        const n = parseInt(it,10);
-        if (Number.isFinite(n)) addPiece(color, king, n);
+        const n=parseInt(it,10);
+        if (Number.isFinite(n)) addPiece(color,king,n);
       }
     }
-
     for (const seg of segs){
-      const sm = seg.match(/^([WB])(.+)$/i);
+      const sm=seg.match(/^([WB])(.+)$/i);
       if (!sm) continue;
-      const col = (sm[1].toUpperCase()==='W') ? 'w' : 'b';
+      const col=(sm[1].toUpperCase()==='W')?'w':'b';
       parseList(col, sm[2]);
     }
-
-    out.ok = true;
+    out.ok=true;
     return out;
   }
-
   function getStartStateForGame(gameText){
-    const fen = getTag(gameText, 'FEN');
-    const setup = getTag(gameText, 'SetUp');
-    if (fen && setup === '1'){
-      const parsed = parseFEN10x10(fen);
-      if (parsed.ok){
-        return { startSide: parsed.side, startPieces: parsed.pieces };
-      }
+    const fen=getTag(gameText,'FEN');
+    const setup=getTag(gameText,'SetUp');
+    if (fen && setup==='1'){
+      const parsed=parseFEN10x10(fen);
+      if (parsed.ok) return { startSide:parsed.side, startPieces:parsed.pieces };
     }
-    // standard
-    const m = new Map();
+    const m=new Map();
     for (let n=31;n<=50;n++) m.set(n,{color:'w',king:false});
     for (let n=1;n<=20;n++)  m.set(n,{color:'b',king:false});
     return { startSide:'w', startPieces:m };
   }
 
-  function setPiecesFromMap(map){
-    pieces.clear();
-    for (const [k,v] of map.entries()){
-      pieces.set(k, { color:v.color, king:!!v.king });
-    }
-  }
-
-  // ============================================================
-  //  Move application (incl. capture path reconstruction)
-  // ============================================================
+  // ========== Apply move ==========
   function clonePiecesMap(src){
-    const m = new Map();
-    for (const [k,v] of src.entries()) m.set(k, {color:v.color, king:!!v.king});
+    const m=new Map();
+    for (const [k,v] of src.entries()) m.set(k,{color:v.color, king:!!v.king});
     return m;
   }
-  function opponent(color){ return color === 'w' ? 'b' : 'w'; }
+  function opponent(color){ return color==='w'?'b':'w'; }
 
-  function findUniqueCapturePath(from, to, side, isKing){
-    const startMap = clonePiecesMap(pieces);
-    const opp = opponent(side);
-    const results = [];
+  function findUniqueCapturePath(from,to,side,isKing){
+    const startMap=clonePiecesMap(pieces);
+    const opp=opponent(side);
+    const results=[];
 
-    function manCapturesFrom(pos, map){
-      const [r,c] = rcFromN(pos);
-      const dirs = [[-1,-1],[-1,1],[1,-1],[1,1]];
-      const out = [];
+    function manCaps(pos,map){
+      const [r,c]=rcFromN(pos);
+      const dirs=[[-1,-1],[-1,1],[1,-1],[1,1]];
+      const out=[];
       for (const [dr,dc] of dirs){
-        const r1=r+dr, c1=c+dc;
-        const r2=r+2*dr, c2=c+2*dc;
+        const r1=r+dr,c1=c+dc,r2=r+2*dr,c2=c+2*dc;
         if (!inside(r2,c2)) continue;
-        const mid = nFromRC(r1,c1);
-        const land = nFromRC(r2,c2);
-        if (!mid || !land) continue;
-        const mp = map.get(mid);
-        if (!mp || mp.color !== opp) continue;
+        const mid=nFromRC(r1,c1), land=nFromRC(r2,c2);
+        if (!mid||!land) continue;
+        const mp=map.get(mid);
+        if (!mp||mp.color!==opp) continue;
         if (map.has(land)) continue;
-        out.push({ land, cap: mid });
+        out.push({land,cap:mid});
       }
       return out;
     }
 
-    function kingCapturesFrom(pos, map){
-      const [r,c] = rcFromN(pos);
-      const dirs = [[-1,-1],[-1,1],[1,-1],[1,1]];
-      const out = [];
+    function kingCaps(pos,map){
+      const [r,c]=rcFromN(pos);
+      const dirs=[[-1,-1],[-1,1],[1,-1],[1,1]];
+      const out=[];
       for (const [dr,dc] of dirs){
-        let rr=r+dr, cc=c+dc;
-        let firstPieceN = null;
+        let rr=r+dr, cc=c+dc, first=null;
         while (inside(rr,cc)){
-          const nn = nFromRC(rr,cc);
+          const nn=nFromRC(rr,cc);
           if (!nn){ rr+=dr; cc+=dc; continue; }
-          if (map.has(nn)){ firstPieceN = nn; break; }
+          if (map.has(nn)){ first=nn; break; }
           rr+=dr; cc+=dc;
         }
-        if (!firstPieceN) continue;
-        const fp = map.get(firstPieceN);
-        if (!fp || fp.color !== opp) continue;
+        if (!first) continue;
+        const fp=map.get(first);
+        if (!fp||fp.color!==opp) continue;
 
-        rr += dr; cc += dc;
+        rr+=dr; cc+=dc;
         while (inside(rr,cc)){
-          const nn = nFromRC(rr,cc);
+          const nn=nFromRC(rr,cc);
           if (!nn){ rr+=dr; cc+=dc; continue; }
           if (map.has(nn)) break;
-          out.push({ land: nn, cap: firstPieceN });
+          out.push({land:nn, cap:first});
           rr+=dr; cc+=dc;
         }
       }
       return out;
     }
 
-    function dfs(current, map, path){
-      if (results.length > 1) return;
-      if (current === to && path.length > 1){
-        results.push(path.slice());
-        return;
-      }
-      const nexts = isKing ? kingCapturesFrom(current, map) : manCapturesFrom(current, map);
-      if (nexts.length === 0) return;
-
+    function dfs(cur,map,path){
+      if (results.length>1) return;
+      if (cur===to && path.length>1){ results.push(path.slice()); return; }
+      const nexts=isKing?kingCaps(cur,map):manCaps(cur,map);
+      if (!nexts.length) return;
       for (const mv of nexts){
-        const map2 = clonePiecesMap(map);
-        const piece = map2.get(current);
-        if (!piece) continue;
-
-        map2.delete(current);
+        const map2=clonePiecesMap(map);
+        const pc=map2.get(cur);
+        if (!pc) continue;
+        map2.delete(cur);
         map2.delete(mv.cap);
-        map2.set(mv.land, piece);
-
-        const path2 = path.slice();
-        path2.push(mv.land);
-        dfs(mv.land, map2, path2);
-
-        if (results.length > 1) return;
+        map2.set(mv.land, pc);
+        const p2=path.slice(); p2.push(mv.land);
+        dfs(mv.land,map2,p2);
+        if (results.length>1) return;
       }
     }
 
-    const p0 = startMap.get(from);
-    if (!p0 || p0.color !== side) return null;
-
-    dfs(from, startMap, [from]);
-    return (results.length === 1) ? results[0] : null;
+    const p0=startMap.get(from);
+    if (!p0||p0.color!==side) return null;
+    dfs(from,startMap,[from]);
+    return results.length===1?results[0]:null;
   }
 
   function removeCapturedBetween(a,b,color){
-    const [r1,c1] = rcFromN(a);
-    const [r2,c2] = rcFromN(b);
-    const dr = Math.sign(r2-r1);
-    const dc = Math.sign(c2-c1);
-    if (dr===0 || dc===0) return;
-
+    const [r1,c1]=rcFromN(a), [r2,c2]=rcFromN(b);
+    const dr=Math.sign(r2-r1), dc=Math.sign(c2-c1);
+    if (!dr||!dc) return;
     let r=r1+dr, c=c1+dc;
     while (r!==r2 && c!==c2){
-      const n = nFromRC(r,c);
+      const n=nFromRC(r,c);
       if (n && pieces.has(n)){
-        const p = pieces.get(n);
-        if (p.color !== color){
-          pieces.delete(n);
-          return;
-        }
+        const p=pieces.get(n);
+        if (p.color!==color){ pieces.delete(n); return; }
       }
       r+=dr; c+=dc;
     }
   }
 
-  function applyMoveToken(moveObj){
-    let {capture, path, side} = moveObj;
-    const from = path[0];
-    const piece = pieces.get(from);
-    if (!piece || piece.color !== side) return false;
+  function applyMove(moveObj){
+    let {capture,path,side}=moveObj;
+    const from=path[0];
+    const piece=pieces.get(from);
+    if (!piece || piece.color!==side) return false;
 
-    if (capture && path.length === 2){
-      const to = path[1];
-      const full = findUniqueCapturePath(from, to, side, !!piece.king);
-      if (full) path = full;
+    if (capture && path.length===2){
+      const to=path[1];
+      const full=findUniqueCapturePath(from,to,side,!!piece.king);
+      if (full) path=full;
     }
 
     pieces.delete(from);
-
     if (capture){
       for (let i=0;i<path.length-1;i++){
-        removeCapturedBetween(path[i], path[i+1], side);
+        removeCapturedBetween(path[i],path[i+1],side);
       }
     }
-
-    const to = path[path.length-1];
-    pieces.set(to, piece);
+    const to=path[path.length-1];
+    pieces.set(to,piece);
     promoteIfNeeded(to);
     return true;
   }
 
-  // ============================================================
-  //  OPL2 VARIANT TREE PARSER (recursive)
-  // ============================================================
-  // Node = { id, move:{raw,capture,path,side,annot}, comment, children:[Sequence], parentId, plyIndexMain? }
-  // Sequence = array of nodeIds (line)
-  let nodeStore = new Map();
-  let rootId = 'ROOT';
-
+  // ========== Variantes (arbre) + annotations ==========
+  let nodeStore=new Map();
+  const ROOT='ROOT';
   function resetTree(){
-    nodeStore = new Map();
-    nodeStore.set(rootId, { id:rootId, move:null, comment:'', children:[], parentId:null });
+    nodeStore=new Map();
+    nodeStore.set(ROOT,{id:ROOT, move:null, comment:'', children:[], parentId:null});
   }
 
-  function stripMoveNumbers(s){
-    // remove "12." or "12..." tokens
-    return s.replace(/\b\d+\s*\.(\.\.)?/g, ' ');
-  }
+  function stripMoveNumbers(s){ return s.replace(/\b\d+\s*\.(\.\.)?/g,' '); }
 
   function lex(body){
-    // tokens: '(', ')', '{comment}', moveToken, otherWords (ignored)
-    const s = stripMoveNumbers(body);
-    const out = [];
+    const s=stripMoveNumbers(body);
+    const out=[];
     let i=0;
     while (i<s.length){
-      const ch = s[i];
+      const ch=s[i];
       if (/\s/.test(ch)){ i++; continue; }
-
-      if (ch === '('){ out.push({t:'('}); i++; continue; }
-      if (ch === ')'){ out.push({t:')'}); i++; continue; }
-
-      if (ch === '{'){
+      if (ch==='('){ out.push({t:'('}); i++; continue; }
+      if (ch===')'){ out.push({t:')'}); i++; continue; }
+      if (ch==='{'){
         let j=i+1;
-        while (j<s.length && s[j] !== '}') j++;
-        const txt = s.slice(i+1, j< s.length ? j : s.length).trim();
+        while (j<s.length && s[j]!=='}') j++;
+        const txt=s.slice(i+1, j<s.length?j:s.length).trim();
         out.push({t:'C', v:txt});
-        i = (j < s.length) ? j+1 : s.length;
+        i=(j<s.length)?j+1:s.length;
         continue;
       }
-
-      // word token until whitespace or paren/brace
       let j=i;
-      while (j<s.length && !/\s/.test(s[j]) && s[j] !== '(' && s[j] !== ')' && s[j] !== '{' && s[j] !== '}') j++;
-      const tok = s.slice(i,j).trim();
+      while (j<s.length && !/\s/.test(s[j]) && !'(){}'.includes(s[j])) j++;
+      const tok=s.slice(i,j).trim();
       if (tok) out.push({t:'W', v:tok});
       i=j;
     }
     return out;
   }
 
-  function parseMoveToken(tok){
-    // remove trailing annotations like ?!, ??, !, ?, !?, ?!
-    let annot = '';
-    const m = tok.match(/([!?]{1,2})$/);
-    if (m){
-      annot = m[1];
-      tok = tok.slice(0, -annot.length);
-    }
-
-    const isCap = tok.includes('x') || tok.includes('X');
-    const sep = isCap ? /x|X/ : /-/;
-    const parts = tok.split(sep).map(s=>parseInt(s,10)).filter(n=>Number.isFinite(n));
-    if (parts.length<2) return null;
-    return { capture:isCap, path:parts, raw:tok + annot, annot };
-  }
-
   function isMoveWord(w){
-    // Accept forms like 34-29, 22x11, 34x23x12, etc., optionally with annotations at end already stripped in parseMoveToken
     return /^[0-9]{1,2}([\-xX][0-9]{1,2})+([!?]{0,2})?$/.test(w);
   }
 
+  function parseMoveToken(tok){
+    let annot='';
+    const m=tok.match(/([!?]{1,2})$/);
+    if (m){ annot=m[1]; tok=tok.slice(0,-annot.length); }
+    const isCap=tok.includes('x')||tok.includes('X');
+    const sep=isCap?/x|X/:/-/;
+    const parts=tok.split(sep).map(s=>parseInt(s,10)).filter(n=>Number.isFinite(n));
+    if (parts.length<2) return null;
+    return { capture:isCap, path:parts, raw:tok+annot, annot };
+  }
+
   function newNode(parentId, moveObj){
-    const id = 'N' + Math.random().toString(36).slice(2,10);
-    nodeStore.set(id, { id, move:moveObj, comment:'', children:[], parentId });
+    const id='N'+Math.random().toString(36).slice(2,10);
+    nodeStore.set(id,{id, move:moveObj, comment:'', children:[], parentId});
     return id;
   }
 
-  // parse a sequence of moves, returns array of nodeIds
   function parseSequence(tokens, idxRef, sideStart, parentId){
-    let side = sideStart;
-    const seq = [];
-    let lastNodeId = null;
+    let side=sideStart;
+    const seq=[];
+    let lastNodeId=null;
 
-    while (idxRef.i < tokens.length){
-      const tk = tokens[idxRef.i];
+    while (idxRef.i<tokens.length){
+      const tk=tokens[idxRef.i];
 
-      if (tk.t === ')') break;
-      if (tk.t === '('){
-        // variation: parse inside, attach as alternative line at current position (parent is lastNode or parentId if none yet)
-        idxRef.i++; // skip '('
-        const branchPointId = lastNodeId || parentId; // variation starts from position AFTER branchPointId
-        const varSeq = parseSequence(tokens, idxRef, side, branchPointId);
-        if (tokens[idxRef.i] && tokens[idxRef.i].t === ')') idxRef.i++; // consume ')'
+      if (tk.t===')') break;
 
-        const bp = nodeStore.get(branchPointId);
-        bp.children.push(varSeq); // children lines
+      if (tk.t==='('){
+        idxRef.i++;
+        const branchPointId=lastNodeId||parentId;
+        const varSeq=parseSequence(tokens, idxRef, side, branchPointId);
+        if (tokens[idxRef.i] && tokens[idxRef.i].t===')') idxRef.i++;
+
+        const bp=nodeStore.get(branchPointId);
+        bp.children.push(varSeq);
         continue;
       }
 
-      if (tk.t === 'C'){
-        // comment: attach to last move node if exists, else attach to parent node (pre-comment)
-        const targetId = lastNodeId || parentId;
-        const n = nodeStore.get(targetId);
-        n.comment = (n.comment ? (n.comment + '\n') : '') + tk.v;
+      if (tk.t==='C'){
+        const targetId=lastNodeId||parentId;
+        const n=nodeStore.get(targetId);
+        n.comment=(n.comment?n.comment+'\n':'')+tk.v;
         idxRef.i++;
         continue;
       }
 
-      if (tk.t === 'W'){
-        const w = tk.v;
-        if (!isMoveWord(w)){
-          idxRef.i++;
-          continue;
-        }
-        const mv = parseMoveToken(w);
+      if (tk.t==='W'){
+        const w=tk.v;
+        if (!isMoveWord(w)){ idxRef.i++; continue; }
+        const mv=parseMoveToken(w);
         if (!mv){ idxRef.i++; continue; }
-        mv.side = side;
+        mv.side=side;
 
-        const nid = newNode(parentId, mv);
+        const nid=newNode(parentId,mv);
         seq.push(nid);
-        lastNodeId = nid;
-
-        // After playing a move, this node becomes the new parent for subsequent moves (mainline continuation)
-        parentId = nid;
-        side = (side === 'w') ? 'b' : 'w';
+        lastNodeId=nid;
+        parentId=nid;
+        side=(side==='w')?'b':'w';
         idxRef.i++;
         continue;
       }
@@ -760,149 +605,119 @@
     return seq;
   }
 
-  // Build tree: mainline is root.children[0] + nodes linked via parentId chain
   function buildTreeFromGame(gameText, startSide){
     resetTree();
-    const body = extractMovesSectionKeepingVars(gameText);
-    const tokens = lex(body);
-    const idxRef = { i:0 };
-    const mainSeq = parseSequence(tokens, idxRef, startSide, rootId);
-
-    // Main line stored as first child line of root
-    nodeStore.get(rootId).children = [mainSeq, ...nodeStore.get(rootId).children];
-
+    const body=extractMovesSectionKeepingVars(gameText);
+    const tokens=lex(body);
+    const idxRef={i:0};
+    const mainSeq=parseSequence(tokens, idxRef, startSide, ROOT);
+    nodeStore.get(ROOT).children=[mainSeq, ...nodeStore.get(ROOT).children];
     return mainSeq;
   }
 
-  // ============================================================
-  //  Branch selection state
-  // ============================================================
-  // decisions: map branchPointId -> chosenChildIndex (0 = mainline continuation, 1.. = variation index)
-  // We implement mainline continuation as the implicit chain through parentId, BUT we stored sequences:
-  // - root.children[0] is mainline sequence from root
-  // - each node can have children[] sequences representing variations starting after that node
-  // For selection, at each branch point we choose which child sequence to follow; default none = mainline.
-  const decisions = new Map();
-  const historyStack = []; // {branchPointId, prevChoice, plyAtChoice, prevLineWasMain:boolean}
+  const decisions=new Map();  // branchPointNodeId -> chosenVariationIndex(1..)
+  const historyStack=[];      // {branchPointId, prevChoice, plyAtChoice}
+  function clearDecisions(){ decisions.clear(); historyStack.length=0; }
 
-  function clearDecisions(){
-    decisions.clear();
-    historyStack.length = 0;
-  }
-
-  // Produce the current "active line" as an array of nodeIds following decisions from root
   function buildActiveLine(){
-    const line = [];
-    function walkFromSequence(seq){
+    const line=[];
+    function walkSeq(seq){
       for (const nid of seq){
         line.push(nid);
-
-        // if this node has a chosen variation starting after it:
-        const node = nodeStore.get(nid);
-        const choice = decisions.has(nid) ? decisions.get(nid) : 0;
-        if (node.children && node.children.length){
-          if (choice > 0 && node.children[choice-1]){
-            // follow chosen variation sequence and STOP mainline beyond this node
-            walkFromSequence(node.children[choice-1]);
-            return;
-          }
+        const n=nodeStore.get(nid);
+        const choice=decisions.has(nid)?decisions.get(nid):0;
+        if (n.children && n.children.length && choice>0 && n.children[choice-1]){
+          walkSeq(n.children[choice-1]);
+          return;
         }
       }
     }
-    // start from root main sequence
-    const root = nodeStore.get(rootId);
-    const mainSeq = (root.children && root.children[0]) ? root.children[0] : [];
-    walkFromSequence(mainSeq);
+    const root=nodeStore.get(ROOT);
+    const main=(root.children && root.children[0])?root.children[0]:[];
+    walkSeq(main);
     return line;
   }
 
-  // Find nearest branch point at or before a ply index (node in active line that has children)
-  function findBranchPointAtPly(activeLine, plyIndex){
-    if (plyIndex <= 0) return null;
-    for (let i = Math.min(plyIndex-1, activeLine.length-1); i>=0; i--){
-      const nid = activeLine[i];
-      const n = nodeStore.get(nid);
-      if (n && n.children && n.children.length) return { nid, at:i };
-    }
-    return null;
-  }
+  // ========== UI ==========
+  const firstBtn=document.getElementById('first');
+  const prevBtn=document.getElementById('prev');
+  const playBtn=document.getElementById('play');
+  const nextBtn=document.getElementById('next');
+  const lastBtn=document.getElementById('last');
+  const backBranchBtn=document.getElementById('backBranch');
+  const backMainBtn=document.getElementById('backMain');
 
-  // ============================================================
-  //  UI / Controls
-  // ============================================================
-  const firstBtn = document.getElementById('first');
-  const prevBtn  = document.getElementById('prev');
-  const playBtn  = document.getElementById('play');
-  const nextBtn  = document.getElementById('next');
-  const lastBtn  = document.getElementById('last');
-  const backBranchBtn = document.getElementById('backBranch');
-  const backMainBtn   = document.getElementById('backMain');
+  const info=document.getElementById('info');
+  const msg=document.getElementById('msg');
+  const gameSel=document.getElementById('gameSel');
+  const commentMeta=document.getElementById('commentMeta');
+  const commentBox=document.getElementById('commentBox');
+  const varList=document.getElementById('varList');
+  const crumb=document.getElementById('crumb');
 
-  const info     = document.getElementById('info');
-  const msg      = document.getElementById('msg');
-  const gameSel  = document.getElementById('gameSel');
+  let timer=null;
 
-  const commentMeta = document.getElementById('commentMeta');
-  const commentBox  = document.getElementById('commentBox');
-  const varList     = document.getElementById('varList');
-  const crumb       = document.getElementById('crumb');
+  let allGames=[];
+  let currentGameIndex=1;
 
-  let timer = null;
+  let startSide='w';
+  let startPiecesMap=null;
 
-  let allGames = [];
-  let currentGameIndex = 1;
-
-  let startSide = 'w';
-  let startPiecesMap = null;
-
-  let mainSeq = [];
-  let activeLine = [];  // nodeIds following current decisions
-  let plyIndex = 0;     // 0..activeLine.length
+  let activeLine=[];
+  let plyIndex=0;
 
   function stop(){
     if (timer){ clearInterval(timer); timer=null; }
-    playBtn.textContent = '▶︎';
+    playBtn.textContent='▶︎';
+  }
+  function showError(t){ msg.textContent=t||''; }
+
+  function niceSide(s){ return s==='w'?'Blancs':'Noirs'; }
+  function annotLabel(a){
+    if (!a) return '';
+    if (a==='??') return 'Gaffe';
+    if (a==='?!') return 'Imprécision';
+    if (a==='!?') return 'Intéressant';
+    if (a==='!') return 'Bon';
+    if (a==='?') return 'Douteux';
+    return a;
   }
 
-  function showError(t){ msg.textContent = t || ''; }
-
   function buildMeta(){
-    const gameText = allGames[currentGameIndex-1] || '';
-    const event = getTag(gameText, 'Event');
-    const date  = getTag(gameText, 'Date');
-    const white = getTag(gameText, 'White');
-    const black = getTag(gameText, 'Black');
-    const fen   = getTag(gameText, 'FEN');
-    return [`Partie ${currentGameIndex}`, event, date, (white && black) ? (white+' / '+black) : '', fen ? 'FEN' : '']
+    const gameText=allGames[currentGameIndex-1]||'';
+    const event=getTag(gameText,'Event');
+    const date=getTag(gameText,'Date');
+    const white=getTag(gameText,'White');
+    const black=getTag(gameText,'Black');
+    const fen=getTag(gameText,'FEN');
+    return [`Partie ${currentGameIndex}`, event, date, (white&&black)?(white+' / '+black):'', fen?'FEN':'']
       .filter(Boolean).join(' — ');
   }
 
   function updateControls(){
-    firstBtn.disabled = (plyIndex===0);
-    prevBtn.disabled  = (plyIndex===0);
-    nextBtn.disabled  = (plyIndex===activeLine.length);
-    lastBtn.disabled  = (plyIndex===activeLine.length);
+    firstBtn.disabled=(plyIndex===0);
+    prevBtn.disabled=(plyIndex===0);
+    nextBtn.disabled=(plyIndex===activeLine.length);
+    lastBtn.disabled=(plyIndex===activeLine.length);
 
-    backBranchBtn.disabled = (historyStack.length === 0);
-    backMainBtn.disabled   = (historyStack.length === 0); // utile seulement si on est sorti de la principale
+    backBranchBtn.disabled=(historyStack.length===0);
+    backMainBtn.disabled=(historyStack.length===0);
 
-    info.textContent = `Demi-temps ${plyIndex}/${activeLine.length} — ${buildMeta()}`;
+    info.textContent=`Demi-temps ${plyIndex}/${activeLine.length} — ${buildMeta()}`;
   }
 
   function applyLineUpTo(ply){
-    // reset from start state
     setPiecesFromMap(startPiecesMap);
-
     for (let i=0;i<ply;i++){
-      const nid = activeLine[i];
-      const node = nodeStore.get(nid);
+      const nid=activeLine[i];
+      const node=nodeStore.get(nid);
       if (!node || !node.move) break;
-      applyMoveToken(node.move);
+      applyMove(node.move);
     }
   }
 
   function rebuildTo(ply){
-    plyIndex = Math.max(0, Math.min(ply, activeLine.length));
+    plyIndex=Math.max(0, Math.min(ply, activeLine.length));
     applyLineUpTo(plyIndex);
     renderBoard();
     renderCommentAndVariants();
@@ -910,11 +725,10 @@
   }
 
   function stepNext(){
-    if (plyIndex>=activeLine.length) { stop(); return; }
-    // apply just next move for speed
-    const nid = activeLine[plyIndex];
-    const node = nodeStore.get(nid);
-    if (node && node.move) applyMoveToken(node.move);
+    if (plyIndex>=activeLine.length){ stop(); return; }
+    const nid=activeLine[plyIndex];
+    const node=nodeStore.get(nid);
+    if (node && node.move) applyMove(node.move);
     plyIndex++;
     renderBoard();
     renderCommentAndVariants();
@@ -931,167 +745,93 @@
 
   firstBtn.addEventListener('click', goFirst);
   lastBtn.addEventListener('click', goLast);
-  prevBtn.addEventListener('click', () => { stop(); stepPrev(); });
-  nextBtn.addEventListener('click', () => { stop(); stepNext(); });
+  prevBtn.addEventListener('click', ()=>{ stop(); stepPrev(); });
+  nextBtn.addEventListener('click', ()=>{ stop(); stepNext(); });
 
-  playBtn.addEventListener('click', () => {
+  playBtn.addEventListener('click', ()=>{
     if (timer){ stop(); return; }
-    timer = setInterval(() => {
-      if (plyIndex>=activeLine.length){ stop(); return; }
-      stepNext();
-    }, 650);
-    playBtn.textContent = '⏸';
+    timer=setInterval(()=>{ if (plyIndex>=activeLine.length){ stop(); return; } stepNext(); }, 650);
+    playBtn.textContent='⏸';
   });
 
-  backBranchBtn.addEventListener('click', () => {
+  backBranchBtn.addEventListener('click', ()=>{
     if (!historyStack.length) return;
     stop();
-    const h = historyStack.pop();
-    // restore previous decision at that branch
-    if (h.prevChoice === null) decisions.delete(h.branchPointId);
+    const h=historyStack.pop();
+    if (h.prevChoice===null) decisions.delete(h.branchPointId);
     else decisions.set(h.branchPointId, h.prevChoice);
-    activeLine = buildActiveLine();
+    activeLine=buildActiveLine();
     rebuildTo(Math.min(h.plyAtChoice, activeLine.length));
   });
 
-  backMainBtn.addEventListener('click', () => {
+  backMainBtn.addEventListener('click', ()=>{
     if (!historyStack.length) return;
     stop();
-    // remove all decisions for a full return to mainline
     clearDecisions();
-    activeLine = buildActiveLine();
+    activeLine=buildActiveLine();
     rebuildTo(Math.min(plyIndex, activeLine.length));
   });
 
-  function fillSelector(){
-    gameSel.innerHTML = '';
-    for (let i=0;i<allGames.length;i++){
-      const g = allGames[i];
-      const white = getTag(g,'White');
-      const black = getTag(g,'Black');
-      const event = getTag(g,'Event');
-      const opt = document.createElement('option');
-      opt.value = String(i+1);
-      const labelPlayers = (white||black) ? `${white} / ${black}` : '';
-      opt.textContent = [`Partie ${i+1}`, labelPlayers, event].filter(Boolean).join(' — ');
-      gameSel.appendChild(opt);
-    }
-    gameSel.value = String(currentGameIndex);
-  }
-
-  gameSel.addEventListener('change', () => {
-    const v = parseInt(gameSel.value, 10);
-    if (!Number.isFinite(v)) return;
-    setGame(v, null); // pas d’auto-#ply au changement
-  });
-
-  function setGame(index, plyToJump){
-    stop();
-    currentGameIndex = Math.max(1, Math.min(index, allGames.length || 1));
-    const gameText = allGames[currentGameIndex-1] || allGames[0] || '';
-
-    const st = getStartStateForGame(gameText);
-    startSide = st.startSide;
-    startPiecesMap = st.startPieces;
-
-    clearDecisions();
-    mainSeq = buildTreeFromGame(gameText, startSide);
-    activeLine = buildActiveLine();
-
-    fillSelector();
-
-    const jump = (plyToJump === null || plyToJump === undefined) ? 0 : plyToJump;
-    rebuildTo(jump);
-
-    showError(activeLine.length ? '' : 'PDN chargé, mais aucun coup détecté.');
-  }
-
-  // ============================================================
-  //  Commentaires + Variantes (UI)
-  // ============================================================
-  function niceSide(s){ return s==='w' ? 'Blancs' : 'Noirs'; }
-  function annotLabel(a){
-    if (!a) return '';
-    if (a==='??') return 'Gaffe';
-    if (a==='?!') return 'Imprécision';
-    if (a==='!?') return 'Intéressant';
-    if (a==='!')  return 'Bon';
-    if (a==='?')  return 'Douteux';
-    return a;
-  }
-
   function renderCommentAndVariants(){
-    // comment: show the move that was just played (plyIndex-1), or start state if 0
-    if (plyIndex === 0){
-      commentMeta.textContent = `Départ — ${niceSide(startSide)} au trait`;
-      commentBox.textContent = '—';
+    // commentaire = coup joué (plyIndex-1)
+    if (plyIndex===0){
+      commentMeta.textContent=`Départ — ${niceSide(startSide)} au trait`;
+      commentBox.textContent='—';
     } else {
-      const nid = activeLine[plyIndex-1];
-      const node = nodeStore.get(nid);
-      const mv = node?.move;
-      const cm = (node?.comment || '').trim();
-      const ann = mv?.annot || '';
-      const annTxt = ann ? ` — ${annotLabel(ann)}` : '';
-      commentMeta.textContent = `${niceSide(mv.side)} joue : ${mv.raw}${annTxt}`;
-      commentBox.textContent = cm ? cm : '—';
+      const nid=activeLine[plyIndex-1];
+      const node=nodeStore.get(nid);
+      const mv=node?.move;
+      const cm=(node?.comment||'').trim();
+      const ann=mv?.annot||'';
+      const annTxt=ann?` — ${annotLabel(ann)}`:'';
+      commentMeta.textContent=`${niceSide(mv.side)} joue : ${mv.raw}${annTxt}`;
+      commentBox.textContent=cm?cm:'—';
     }
 
-    // Variants: show options at the CURRENT POSITION = after last played move (branch point is node at plyIndex-1)
-    varList.innerHTML = '';
-    let bpId = null;
-    let bpLabel = '';
-    if (plyIndex === 0){
-      // variations from root (rare)
-      bpId = rootId;
-      bpLabel = 'Départ';
-    } else {
-      bpId = activeLine[plyIndex-1];
-      const node = nodeStore.get(bpId);
-      bpLabel = node?.move ? node.move.raw : 'Position';
-    }
+    // variantes à la position courante : après le dernier coup (branchpoint = node à plyIndex-1)
+    varList.innerHTML='';
+    let bpId=null;
+    let bpLabel='';
+    if (plyIndex===0){ bpId=ROOT; bpLabel='Départ'; }
+    else { bpId=activeLine[plyIndex-1]; bpLabel=nodeStore.get(bpId)?.move?.raw||'Position'; }
 
-    const bp = nodeStore.get(bpId);
-    const vars = (bp && bp.children) ? bp.children : [];
-    const chosen = decisions.has(bpId) ? decisions.get(bpId) : 0;
+    const bp=nodeStore.get(bpId);
+    const vars=(bp && bp.children)?bp.children:[];
+    const branchInfo=historyStack.length?`Choix: ${historyStack.length}`:'Ligne principale';
+    crumb.innerHTML=`<span class="badge">${branchInfo}</span> <span style="margin-left:6px;">Point: ${bpLabel}</span>`;
 
-    // breadcrumb
-    const branchInfo = historyStack.length ? `Choix: ${historyStack.length}` : 'Ligne principale';
-    crumb.innerHTML = `<span class="badge">${branchInfo}</span> <span style="margin-left:6px;">Point: ${bpLabel}</span>`;
+    // bp.children[0] = mainline (uniquement sur ROOT). Sur les noeuds, bp.children = variantes.
+    const varSeqs = (bpId===ROOT) ? (vars.slice(1)) : vars;
 
-    if (!vars || vars.length === 0){
-      const div = document.createElement('div');
-      div.style.fontSize = '13px';
-      div.style.color = 'var(--muted)';
-      div.style.opacity = '.9';
-      div.textContent = 'Aucune variante à cet endroit.';
+    if (!varSeqs.length){
+      const div=document.createElement('div');
+      div.style.fontSize='13px';
+      div.style.color='var(--muted)';
+      div.style.opacity='.9';
+      div.textContent='Aucune variante à cet endroit.';
       varList.appendChild(div);
       return;
     }
 
-    // For display: list all variants (each is a sequence)
-    // Note: in our parser, bp.children contains ONLY variation sequences (not mainline continuation).
-    // So we label them as "Variante 1, 2..."
-    vars.forEach((seq, i) => {
-      const firstMoveNode = seq && seq.length ? nodeStore.get(seq[0]) : null;
-      const title = firstMoveNode?.move?.raw ? firstMoveNode.move.raw : '(vide)';
-      const side = firstMoveNode?.move?.side ? niceSide(firstMoveNode.move.side) : '';
-      const cm = (firstMoveNode?.comment || '').trim();
-      const ann = firstMoveNode?.move?.annot || '';
+    varSeqs.forEach((seq, i)=>{
+      const first = seq && seq.length ? nodeStore.get(seq[0]) : null;
+      const title = first?.move?.raw ? first.move.raw : '(vide)';
+      const side = first?.move?.side ? niceSide(first.move.side) : '';
+      const cm = (first?.comment||'').trim();
+      const ann = first?.move?.annot || '';
       const annTxt = ann ? ` ${ann}` : '';
 
-      const btn = document.createElement('button');
-      btn.className = 'varBtn';
-      btn.type = 'button';
-      btn.innerHTML = `▶ Variante ${i+1} : ${title}${annTxt}<small>${side}${cm ? ' • ' + cm.split('\n')[0].slice(0,120) : ''}</small>`;
+      const btn=document.createElement('button');
+      btn.className='varBtn';
+      btn.type='button';
+      btn.innerHTML=`▶ Variante ${i+1} : ${title}${annTxt}<small>${side}${cm?' • '+cm.split('\n')[0].slice(0,120):''}</small>`;
 
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', ()=>{
         stop();
         const prevChoice = decisions.has(bpId) ? decisions.get(bpId) : null;
-        // choose this variation (index = i+1 for internal marking)
         decisions.set(bpId, i+1);
-        historyStack.push({ branchPointId: bpId, prevChoice, plyAtChoice: plyIndex });
-        activeLine = buildActiveLine();
-        // After selecting, we stay at same plyIndex (position unchanged); next will follow chosen line.
+        historyStack.push({branchPointId:bpId, prevChoice, plyAtChoice:plyIndex});
+        activeLine=buildActiveLine();
         rebuildTo(Math.min(plyIndex, activeLine.length));
       });
 
@@ -1099,112 +839,123 @@
     });
   }
 
-  // ============================================================
-  //  URL helpers: ?src=... and #ply
-  // ============================================================
+  function fillSelector(){
+    gameSel.innerHTML='';
+    for (let i=0;i<allGames.length;i++){
+      const g=allGames[i];
+      const white=getTag(g,'White');
+      const black=getTag(g,'Black');
+      const event=getTag(g,'Event');
+      const opt=document.createElement('option');
+      opt.value=String(i+1);
+      const labelPlayers=(white||black)?`${white} / ${black}`:'';
+      opt.textContent=[`Partie ${i+1}`,labelPlayers,event].filter(Boolean).join(' — ');
+      gameSel.appendChild(opt);
+    }
+    gameSel.value=String(currentGameIndex);
+  }
+
+  function setGame(index, plyToJump){
+    stop();
+    currentGameIndex=Math.max(1, Math.min(index, allGames.length||1));
+    const gameText=allGames[currentGameIndex-1] || allGames[0] || '';
+
+    const st=getStartStateForGame(gameText);
+    startSide=st.startSide;
+    startPiecesMap=st.startPieces;
+
+    clearDecisions();
+    buildTreeFromGame(gameText, startSide);
+    activeLine=buildActiveLine();
+
+    fillSelector();
+    rebuildTo(plyToJump ?? 0);
+
+    showError(activeLine.length ? '' : 'PDN chargé, mais aucun coup détecté.');
+  }
+
+  gameSel.addEventListener('change', ()=>{
+    const v=parseInt(gameSel.value,10);
+    if (!Number.isFinite(v)) return;
+    setGame(v, 0);
+  });
+
+  // ========== URL params ?src=... and #ply ==========
   function getQueryParam(name){
-    try{
-      const u = new URL(window.location.href);
-      return u.searchParams.get(name);
-    }catch(_e){ return null; }
+    try{ return new URL(location.href).searchParams.get(name); }catch(_e){ return null; }
   }
   function getHashPly(){
-    const h = (location.hash || '').replace('#','').trim();
-    const n = parseInt(h, 10);
-    return Number.isFinite(n) && n>=0 ? n : null;
+    const h=(location.hash||'').replace('#','').trim();
+    const n=parseInt(h,10);
+    return Number.isFinite(n)&&n>=0?n:null;
   }
   function readEmbeddedPDNById(id){
     if (!id) return '';
-    const el = document.getElementById(id);
-    if (!el) return '';
-    return (el.textContent || '').trim();
+    const el=document.getElementById(id);
+    return el ? (el.textContent||'').trim() : '';
   }
 
-  // ============================================================
-  //  Load PDN
-  // ============================================================
-  function loadFromPDNText(pdnText, plyToJump){
-    allGames = splitGames(pdnText || '');
-    if (!allGames.length) allGames = [''];
-    currentGameIndex = 1;
+  function loadFromPDNText(pdnText, plyToJump, gameIndex){
+    allGames=splitGames(pdnText||'');
+    if (!allGames.length) allGames=[''];
+    currentGameIndex=1;
     fillSelector();
-    setGame(1, plyToJump ?? 0);
+
+    const g = Number.isFinite(gameIndex) ? gameIndex : 1;
+    setGame(g, plyToJump ?? 0);
     showError('');
   }
 
-  function bootEmbedded(){
-    const src = getQueryParam('src') || 'opl-pdn';
-    const pdn = readEmbeddedPDNById(src);
-    if (!pdn) return false;
-
-    const ply = getHashPly();
-    loadFromPDNText(pdn, ply ?? 0);
-    return true;
-  }
-
-  // ============================================================
-  //  Responsive size snap
-  // ============================================================
+  // ========== responsive width snap ==========
   function snapBoardSize(){
-    const max = 560;
-    const desired = Math.min(window.innerWidth * 0.92, max);
-    const snapped = Math.max(320, Math.floor(desired / 10) * 10);
-    document.documentElement.style.setProperty('--w', snapped + 'px');
+    const max=560;
+    const desired=Math.min(window.innerWidth*0.92, max);
+    const snapped=Math.max(320, Math.floor(desired/10)*10);
+    document.documentElement.style.setProperty('--w', snapped+'px');
   }
   window.addEventListener('resize', snapBoardSize);
-  setTimeout(snapBoardSize, 0);
-  setTimeout(snapBoardSize, 200);
+  setTimeout(snapBoardSize,0);
+  setTimeout(snapBoardSize,200);
 
-  // ============================================================
-  //  Init
-  // ============================================================
-  // default start state
-  const std = new Map();
+  // ========== init ==========
+  const std=new Map();
   for (let n=31;n<=50;n++) std.set(n,{color:'w',king:false});
   for (let n=1;n<=20;n++)  std.set(n,{color:'b',king:false});
-  startSide = 'w';
-  startPiecesMap = std;
-
+  startSide='w';
+  startPiecesMap=std;
   setPiecesFromMap(startPiecesMap);
+
   resetTree();
-  activeLine = [];
-  plyIndex = 0;
+  activeLine=[];
+  plyIndex=0;
   renderBoard();
   renderCommentAndVariants();
   updateControls();
   showError('En attente du PDN…');
 
-  // READY to parent
-  try { window.parent.postMessage({ type:'OPL_READY' }, '*'); } catch(_e){}
+  // READY
+  try{ window.parent.postMessage({type:'OPL_READY'}, '*'); }catch(_e){}
 
-  // Try embedded PDN
-  const embeddedLoaded = bootEmbedded();
-  if (embeddedLoaded) showError('');
+  // Embedded in iframe (optional): ?src=opl-pdn#111
+  const src=getQueryParam('src') || 'opl-pdn';
+  const embedded=readEmbeddedPDNById(src);
+  if (embedded){
+    const ply=getHashPly() ?? 0;
+    loadFromPDNText(embedded, ply, 1);
+  }
 
-  // postMessage fallback (NEWS -> iframe)
-  window.addEventListener('message', (e) => {
-    if (!e.data) return;
-
-    if (e.data.type === 'OPL_PDN'){
-      if (typeof e.data.pdn !== 'string' || !e.data.pdn.trim()) return;
+  // postMessage (NEWS -> IFRAME)
+  window.addEventListener('message', (e)=>{
+    if (!e || !e.data) return;
+    if (e.data.type==='OPL_PDN'){
+      const pdn=(typeof e.data.pdn==='string')?e.data.pdn:'';
+      if (!pdn.trim()) return;
+      const ply=parseInt(e.data.ply,10);
+      const plyToJump=Number.isFinite(ply)?ply:0;
+      const game=parseInt(e.data.game,10);
+      const gameIndex=Number.isFinite(game)?game:1;
       stop();
-      const ply = parseInt(e.data.ply, 10);
-      const plyToJump = Number.isFinite(ply) ? ply : 0;
-      loadFromPDNText(e.data.pdn, plyToJump);
-
-      const g = parseInt(e.data.game, 10);
-      if (Number.isFinite(g) && g>=1 && g<=allGames.length){
-        setGame(g, plyToJump);
-      }
-      return;
-    }
-
-    if (e.data.type === 'OPL_GOTO'){
-      const ply = parseInt(e.data.ply, 10);
-      if (!Number.isFinite(ply)) return;
-      stop();
-      rebuildTo(ply);
-      return;
+      loadFromPDNText(pdn, plyToJump, gameIndex);
     }
   });
 
