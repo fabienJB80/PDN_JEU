@@ -1,0 +1,1151 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>OPL – lecteur PDN (FEN + variantes + ply)</title>
+
+  <style>
+    :root{
+      --panel:#f3efe6;
+      --border:#d8cfbf;
+      --light:#efe4cf;
+      --dark:#a8743a;
+      --w: 480px;
+      --ink:#2b2b2b;
+      --muted:#6b3f2c;
+    }
+
+    html,body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial}
+    body{
+      background:#fff;
+      display:flex;
+      align-items:flex-start;
+      justify-content:center;
+      padding:12px;
+      color:var(--ink);
+    }
+
+    .wrap{
+      width:var(--w);
+      max-width:var(--w);
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:flex-start;
+      gap:10px;
+    }
+    .selectWrap{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-size:13px;
+      color:#3b2a16;
+      width:100%;
+    }
+    .selectWrap strong{white-space:nowrap}
+    select{
+      width:100%;
+      max-width:360px;
+      padding:8px 10px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:#fff;
+      font-size:13px;
+      outline:none;
+    }
+
+    .board{
+      width:100%;
+      aspect-ratio:1/1;
+      display:grid;
+      grid-template-columns:repeat(10,1fr);
+      grid-template-rows:repeat(10,1fr);
+      border:0;
+      outline:1px solid rgba(0,0,0,.12);
+      border-radius:10px;
+      overflow:hidden;
+      box-shadow:0 8px 30px rgba(0,0,0,.20);
+      background:#000;
+    }
+
+    .sq{
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-width:0;
+      min-height:0;
+    }
+    .light{background:var(--light)}
+    .dark{background:var(--dark)}
+
+    .num{
+      position:absolute;
+      top:3px; left:5px;
+      font-size:12px;
+      opacity:.55;
+      color:#000;
+      user-select:none;
+      pointer-events:none;
+    }
+    .dark .num{color:#fff; opacity:.65}
+
+    .piece{
+      width:72%;
+      aspect-ratio:1/1;
+      border-radius:50%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow: inset 0 3px 0 rgba(255,255,255,.18), 0 6px 12px rgba(0,0,0,.35);
+      border:1px solid rgba(0,0,0,.35);
+    }
+    .w{background:#f6f1e8}
+    .b{background:#1a1a1a}
+    .king::after{
+      content:"K";
+      font-weight:800;
+      font-size:18px;
+      color:rgba(255,255,255,.85);
+      text-shadow:0 1px 0 rgba(0,0,0,.6);
+    }
+    .w.king::after{color:rgba(0,0,0,.75); text-shadow:none}
+
+    .bar{
+      display:flex;
+      gap:6px;
+      align-items:center;
+      justify-content:center;
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:8px;
+      flex-wrap:wrap;
+    }
+
+    button{
+      padding:8px 12px;
+      border-radius:10px;
+      border:1px solid #cdbfa9;
+      background:#fff;
+      cursor:pointer;
+      font-weight:700;
+      min-width:44px;
+      font-size:14px;
+      line-height:1;
+    }
+    button:disabled{opacity:.55; cursor:not-allowed}
+
+    .info{
+      flex:1;
+      text-align:center;
+      font-size:13px;
+      color:#3b2a16;
+      user-select:none;
+      padding:0 8px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      min-width:0;
+    }
+
+    .msg{
+      color:#b00020;
+      font-family:ui-monospace,Consolas,monospace;
+      font-size:12px;
+      text-align:center;
+      opacity:.95;
+      min-height:16px;
+    }
+
+    .varbar{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      justify-content:space-between;
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:8px 10px;
+      font-size:13px;
+    }
+    .varbar .left{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      min-width:0;
+      flex:1;
+    }
+    .badge{
+      font-size:12px;
+      font-weight:800;
+      padding:4px 8px;
+      border-radius:999px;
+      background:var(--panel);
+      border:1px solid var(--border);
+      color:var(--muted);
+      white-space:nowrap;
+    }
+    .path{
+      min-width:0;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      color:#3b2a16;
+    }
+    .right{
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+    .miniSel{
+      max-width:220px;
+      padding:6px 8px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      font-size:13px;
+      outline:none;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="selectWrap">
+        <strong>Partie</strong>
+        <select id="gameSel" aria-label="Sélection de la partie">
+          <option value="1">En attente…</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="board" class="board" aria-label="Damier"></div>
+
+    <!-- Variantes -->
+    <div class="varbar" aria-label="Variantes">
+      <div class="left">
+        <span class="badge">Variantes</span>
+        <div id="varPath" class="path">Ligne principale</div>
+      </div>
+      <div class="right">
+        <select id="varSel" class="miniSel" aria-label="Choix variante">
+          <option value="main">Ligne principale</option>
+        </select>
+        <button id="varUp" title="Revenir à la ligne parente">↰</button>
+      </div>
+    </div>
+
+    <div class="bar">
+      <button id="first" title="Début">⏮</button>
+      <button id="prev"  title="Coup précédent">⟵</button>
+      <button id="play"  title="Lecture / Pause">▶︎</button>
+      <button id="next"  title="Coup suivant">⟶</button>
+      <button id="last"  title="Fin">⏭</button>
+      <div id="info" class="info">En attente du PDN…</div>
+    </div>
+
+    <div id="msg" class="msg"></div>
+  </div>
+
+<script>
+(() => {
+  // ============================================================
+  //  Helpers: 1..50 <-> (r,c) sur cases noires 10x10
+  // ============================================================
+  function rcFromN(n){
+    const i = n - 1;
+    const r = Math.floor(i / 5);
+    const k = i % 5;
+    const c = (r % 2 === 0) ? (1 + 2*k) : (0 + 2*k);
+    return [r,c];
+  }
+  function nFromRC(r,c){
+    if ((r+c)%2===0) return null;
+    const k = (r%2===0) ? (c-1)/2 : c/2;
+    if (!Number.isInteger(k) || k<0 || k>4) return null;
+    return r*5 + k + 1;
+  }
+  function inside(r,c){ return r>=0 && r<10 && c>=0 && c<10; }
+
+  // ============================================================
+  //  Board model
+  // ============================================================
+  const pieces = new Map(); // n -> {color:'w'|'b', king:boolean}
+  let startSide = 'w';      // côté à jouer au départ (depuis FEN possible)
+
+  function resetInitial(){
+    pieces.clear();
+    for (let n=31;n<=50;n++) pieces.set(n,{color:'w',king:false}); // blancs en bas
+    for (let n=1;n<=20;n++)  pieces.set(n,{color:'b',king:false}); // noirs en haut
+    startSide = 'w';
+  }
+
+  function promoteIfNeeded(n){
+    const p = pieces.get(n);
+    if (!p || p.king) return;
+    const [r] = rcFromN(n);
+    if (p.color==='w' && r===0) p.king=true;
+    if (p.color==='b' && r===9) p.king=true;
+  }
+
+  function renderBoard(){
+    const board = document.getElementById('board');
+    board.innerHTML = '';
+    for (let r=0;r<10;r++){
+      for (let c=0;c<10;c++){
+        const sq = document.createElement('div');
+        const dark = (r+c)%2===1;
+        sq.className = 'sq ' + (dark?'dark':'light');
+
+        if (dark){
+          const n = nFromRC(r,c);
+          const num = document.createElement('div');
+          num.className='num';
+          num.textContent = n;
+          sq.appendChild(num);
+
+          const p = pieces.get(n);
+          if (p){
+            const d = document.createElement('div');
+            d.className = 'piece ' + p.color + (p.king?' king':'');
+            sq.appendChild(d);
+          }
+        }
+        board.appendChild(sq);
+      }
+    }
+  }
+
+  // ============================================================
+  //  PDN split + tags
+  // ============================================================
+  function splitGames(pdnText){
+    const txt = (pdnText||'').replace(/\r\n/g, '\n');
+    const idx = [];
+    const re = /^\s*\[Event\s+/gmi;
+    let m;
+    while ((m = re.exec(txt)) !== null) idx.push(m.index);
+    if (idx.length===0) return [txt.trim()].filter(Boolean);
+
+    const games = [];
+    for (let i=0;i<idx.length;i++){
+      const start = idx[i];
+      const end = (i+1<idx.length) ? idx[i+1] : txt.length;
+      const g = txt.slice(start,end).trim();
+      if (g) games.push(g);
+    }
+    return games.length ? games : [txt.trim()].filter(Boolean);
+  }
+
+  function getTag(gameText, name){
+    const re = new RegExp('^\\s*\\['+name+'\\s+"([^"]*)"\\]\\s*$', 'mi');
+    const m = gameText.match(re);
+    return m ? m[1] : '';
+  }
+
+  function extractMovesSection(gameText){
+    // on conserve les parenthèses pour variantes, on enlève seulement tags
+    let body = (gameText||'').replace(/^\s*\[[^\]]+\]\s*$/gmi, '');
+    return body;
+  }
+
+  // ============================================================
+  //  FEN (International draughts PDN) : ex "W:W31-50:B1-20"
+  //  + rois: "WK10" / "BK1" / "K10" (variantes) — on gère le standard le plus courant
+  // ============================================================
+  function parseFEN10x10(fen){
+    // Retourne { ok, side:'w'|'b', pieces: Map<n,{color,king}> }
+    const out = { ok:false, side:'w', pieces:new Map() };
+    if (!fen || typeof fen !== 'string') return out;
+
+    // Nettoyage
+    fen = fen.trim();
+    // Exemple attendu: "W:W31-50:B1-20" (ou avec rois)
+    const m = fen.match(/^([WB])\s*:\s*(.+)$/i);
+    if (!m) return out;
+
+    const sideChar = m[1].toUpperCase();
+    out.side = (sideChar === 'W') ? 'w' : 'b';
+
+    const rest = m[2];
+    // Segments séparés par ":" => typiquement "W...." et "B...."
+    const segs = rest.split(':').map(s=>s.trim()).filter(Boolean);
+    if (!segs.length) return out;
+
+    function addPiece(color, king, n){
+      if (n<1 || n>50) return;
+      out.pieces.set(n, { color, king:!!king });
+    }
+
+    function parseList(color, listStr){
+      // listStr: ex "W31-50,WK10, W5" (on accepte virgules et espaces)
+      // On retire le préfixe "W" ou "B" déjà consommé au niveau segment
+      let s = listStr.replace(/\s+/g,'');
+      if (!s) return;
+
+      // découpe par virgule
+      const items = s.split(',').filter(Boolean);
+      for (const it of items){
+        // King explicite: "K10" ou "WK10" déjà réduit ici éventuellement
+        // Comme on a retiré espaces seulement, on peut avoir "K10" ou "10" ou "10-12"
+        let king = false;
+        let t = it;
+        if (t.startsWith('K')){
+          king = true;
+          t = t.slice(1);
+        }
+        // Range ?
+        const rm = t.match(/^(\d+)-(\d+)$/);
+        if (rm){
+          let a = parseInt(rm[1],10), b = parseInt(rm[2],10);
+          if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+          const step = (a<=b) ? 1 : -1;
+          for (let n=a; step>0 ? n<=b : n>=b; n+=step){
+            addPiece(color, king, n);
+          }
+          continue;
+        }
+        const n = parseInt(t,10);
+        if (Number.isFinite(n)) addPiece(color, king, n);
+      }
+    }
+
+    // Chaque segment commence normalement par "W" ou "B"
+    for (const seg of segs){
+      const sm = seg.match(/^([WB])(.+)$/i);
+      if (!sm) continue;
+      const col = sm[1].toUpperCase()==='W' ? 'w' : 'b';
+      let list = sm[2];
+
+      // Certains FEN mettent rois comme "WK10" / "BK3" dans la même liste,
+      // ici on accepte aussi "K" inline.
+      parseList(col, list);
+    }
+
+    out.ok = out.pieces.size > 0 || true; // on accepte même position vide (rare)
+    return out;
+  }
+
+  function setupFromFENTags(gameText){
+    const fen = getTag(gameText,'FEN');
+    const setup = getTag(gameText,'SetUp'); // souvent "1"
+    if (!fen) return false;
+
+    // Si SetUp est absent mais FEN présent, on l'utilise quand même.
+    const parsed = parseFEN10x10(fen);
+    if (!parsed.ok) return false;
+
+    pieces.clear();
+    for (const [n,p] of parsed.pieces.entries()){
+      pieces.set(n, { color:p.color, king:!!p.king });
+    }
+    startSide = parsed.side;
+    return true;
+  }
+
+  // ============================================================
+  //  Tokenizer avec parenthèses (variantes), commentaires {}, ;, NAG $xx
+  //  On produit une liste de tokens significatifs :
+  //   - '(' , ')' pour variantes
+  //   - 'MOVE' : {t:'M', raw:'34-29' ...}
+  //   - on ignore commentaires / NAG / numéros / résultats
+  // ============================================================
+  function tokenizePDNMovetext(body){
+    let s = (body||'')
+      .replace(/\r\n/g,'\n');
+
+    // Enlever commentaires {} et ; ... fin de ligne
+    s = s.replace(/\{[^}]*\}/g, ' ');
+    s = s.replace(/;[^\n]*$/gm, ' ');
+
+    // Protéger parenthèses en les espaçant
+    s = s.replace(/\(/g,' ( ').replace(/\)/g,' ) ');
+
+    // Retirer résultats
+    s = s.replace(/\b(1-0|0-1|1\/2-1\/2|1-1|\*)\b/g, ' ');
+
+    // Retirer numéros de coups "12." / "12..." (mais garder le texte)
+    s = s.replace(/\b\d+\s*\.(\.\.)?/g, ' ');
+
+    // Compact
+    s = s.replace(/\s+/g,' ').trim();
+    if (!s) return [];
+
+    const raw = s.split(' ');
+    const out = [];
+    for (const t of raw){
+      if (!t) continue;
+      if (t === '(' || t === ')'){ out.push(t); continue; }
+      if (/^\$?\d+$/.test(t)) continue; // NAG ou numéro isolé
+      out.push(t);
+    }
+    return out;
+  }
+
+  function parseMoveToken(tok){
+    // coups: "34-29" ou "20x29" ou "23-28" etc
+    const isCap = tok.includes('x') || tok.includes('X');
+    const sep = isCap ? /x|X/ : /-/;
+    const parts = tok.split(sep).map(s=>parseInt(s,10)).filter(n=>Number.isFinite(n));
+    if (parts.length<2) return null;
+    return { capture:isCap, path:parts, raw:tok };
+  }
+
+  // ============================================================
+  //  Arbre de coups (mainline + variantes)
+  //  Node = { id, move|null, side, parent, next, vars:[], plyIndexMain }
+  //  Le "root" représente la position de départ (move=null)
+  // ============================================================
+  let nodeIdSeq = 1;
+  function newNode(move, side, parent){
+    return {
+      id: nodeIdSeq++,
+      move,            // objet move {capture,path,raw} ou null pour root
+      side,            // 'w'|'b' (côté qui JOUE ce coup)
+      parent: parent || null,
+      next: null,      // continuation principale
+      vars: [],        // variantes (chacune est une chaîne de nodes dont le premier est un node)
+    };
+  }
+
+  function buildGameTree(gameText){
+    // Départ : initial ou FEN
+    resetInitial();
+    setupFromFENTags(gameText); // si FEN => pieces + startSide
+
+    const body = extractMovesSection(gameText);
+    const tokens = tokenizePDNMovetext(body);
+
+    // root
+    nodeIdSeq = 1;
+    const root = newNode(null, startSide, null);
+
+    // Parser à pile : quand on ouvre '(' on démarre une variante depuis le parent "currentParent"
+    let current = root;          // dernier node de la ligne qu'on remplit
+    let side = startSide;        // côté à jouer
+    const stack = [];            // pile d'états pour variantes: { returnNode, returnSide, varHeadParent }
+
+    function appendMove(afterNode, moveObj, moveSide, asVar){
+      const n = newNode(moveObj, moveSide, afterNode);
+      if (!asVar){
+        afterNode.next = n;
+      }else{
+        // variante attachée à afterNode.parent du point de branchement :
+        // ici on gère au niveau du code appelant, donc on ne fait rien.
+      }
+      return n;
+    }
+
+    // Dans PDN/PGN, une variante "( ... )" est en général une alternative au coup suivant
+    // du "current" (donc branche depuis current.parent? ou depuis le noeud courant ?).
+    // On adopte une règle pratique :
+    //   - quand on lit '(' : on branche depuis le PARENT du prochain coup attendu.
+    //     Ici, "current" est le dernier coup joué sur la ligne courante.
+    //     La variante représente une alternative au coup suivant => même position que "current".
+    //     Donc l'ancre = current (position après current), et la variante devient un "premier coup"
+    //     partant de current.
+    // Donc: varAnchor = current, varSide = side (côté qui doit jouer dans la variante).
+    //
+    for (let i=0;i<tokens.length;i++){
+      const t = tokens[i];
+
+      if (t === '('){
+        // On empile l'état courant; on démarre une nouvelle sous-ligne rattachée à current
+        stack.push({ returnNode: current, returnSide: side });
+        // la variante va être construite à part:
+        // on crée un "dummy" head? non, on va créer la chaîne et la pousser dans current.vars
+        // On marque currentVarAnchor sur la pile
+        stack[stack.length-1].varAnchor = current;
+        stack[stack.length-1].varHead = null;
+        stack[stack.length-1].varTail = null;
+        // current reste pareil, on va remplir la variante "dans le vide" via varTail
+        continue;
+      }
+
+      if (t === ')'){
+        const st = stack.pop();
+        if (!st) continue;
+        // si une variante a été construite, on l'attache
+        if (st.varHead){
+          st.varAnchor.vars.push(st.varHead);
+        }
+        // on revient à la ligne principale
+        current = st.returnNode;
+        side = st.returnSide;
+        continue;
+      }
+
+      const mo = parseMoveToken(t);
+      if (!mo) continue;
+
+      if (stack.length){
+        // On est dans une variante : on ajoute la chaîne dans st.varTail
+        const st = stack[stack.length-1];
+        if (!st.varHead){
+          st.varHead = newNode(mo, side, st.varAnchor);
+          st.varTail = st.varHead;
+        }else{
+          const nn = newNode(mo, side, st.varTail);
+          st.varTail.next = nn;
+          st.varTail = nn;
+        }
+        side = (side==='w') ? 'b' : 'w';
+      }else{
+        // Ligne principale
+        const nn = appendMove(current, mo, side, false);
+        current = nn;
+        side = (side==='w') ? 'b' : 'w';
+      }
+    }
+
+    return root;
+  }
+
+  // ============================================================
+  //  Application coups (avec reconstruction captures courtes)
+  // ============================================================
+  function clonePiecesMap(src){
+    const m = new Map();
+    for (const [k,v] of src.entries()) m.set(k, {color:v.color, king:!!v.king});
+    return m;
+  }
+  function opponent(color){ return color === 'w' ? 'b' : 'w'; }
+
+  function findUniqueCapturePath(from, to, side, isKing){
+    const startMap = clonePiecesMap(pieces);
+    const opp = opponent(side);
+    const results = [];
+
+    function manCapturesFrom(pos, map){
+      const [r,c] = rcFromN(pos);
+      const dirs = [[-1,-1],[-1,1],[1,-1],[1,1]];
+      const out = [];
+      for (const [dr,dc] of dirs){
+        const r1=r+dr, c1=c+dc;
+        const r2=r+2*dr, c2=c+2*dc;
+        if (!inside(r2,c2)) continue;
+        const mid = nFromRC(r1,c1);
+        const land = nFromRC(r2,c2);
+        if (!mid || !land) continue;
+        const mp = map.get(mid);
+        if (!mp || mp.color !== opp) continue;
+        if (map.has(land)) continue;
+        out.push({ land, cap: mid });
+      }
+      return out;
+    }
+
+    function kingCapturesFrom(pos, map){
+      const [r,c] = rcFromN(pos);
+      const dirs = [[-1,-1],[-1,1],[1,-1],[1,1]];
+      const out = [];
+      for (const [dr,dc] of dirs){
+        let rr=r+dr, cc=c+dc;
+        let firstPieceN = null;
+        while (inside(rr,cc)){
+          const nn = nFromRC(rr,cc);
+          if (!nn){ rr+=dr; cc+=dc; continue; }
+          if (map.has(nn)){ firstPieceN = nn; break; }
+          rr+=dr; cc+=dc;
+        }
+        if (!firstPieceN) continue;
+        const fp = map.get(firstPieceN);
+        if (!fp || fp.color !== opp) continue;
+
+        rr += dr; cc += dc;
+        while (inside(rr,cc)){
+          const nn = nFromRC(rr,cc);
+          if (!nn){ rr+=dr; cc+=dc; continue; }
+          if (map.has(nn)) break;
+          out.push({ land: nn, cap: firstPieceN });
+          rr+=dr; cc+=dc;
+        }
+      }
+      return out;
+    }
+
+    function dfs(current, map, path){
+      if (results.length > 1) return;
+      if (current === to && path.length > 1){
+        results.push(path.slice());
+        return;
+      }
+      const nexts = isKing ? kingCapturesFrom(current, map) : manCapturesFrom(current, map);
+      if (nexts.length === 0) return;
+
+      for (const mv of nexts){
+        const map2 = clonePiecesMap(map);
+        const piece = map2.get(current);
+        if (!piece) continue;
+
+        map2.delete(current);
+        map2.delete(mv.cap);
+        map2.set(mv.land, piece);
+
+        const path2 = path.slice();
+        path2.push(mv.land);
+        dfs(mv.land, map2, path2);
+
+        if (results.length > 1) return;
+      }
+    }
+
+    const p0 = startMap.get(from);
+    if (!p0 || p0.color !== side) return null;
+
+    dfs(from, startMap, [from]);
+    return (results.length === 1) ? results[0] : null;
+  }
+
+  function removeCapturedBetween(a,b,color){
+    const [r1,c1] = rcFromN(a);
+    const [r2,c2] = rcFromN(b);
+    const dr = Math.sign(r2-r1);
+    const dc = Math.sign(c2-c1);
+    if (dr===0 || dc===0) return;
+
+    let r=r1+dr, c=c1+dc;
+    while (r!==r2 && c!==c2){
+      const n = nFromRC(r,c);
+      if (n && pieces.has(n)){
+        const p = pieces.get(n);
+        if (p.color !== color){
+          pieces.delete(n);
+          return;
+        }
+      }
+      r+=dr; c+=dc;
+    }
+  }
+
+  function applyOne(moveObj, side){
+    let {capture, path} = moveObj;
+    const from = path[0];
+    const piece = pieces.get(from);
+    if (!piece || piece.color !== side) return false;
+
+    if (capture && path.length === 2){
+      const to = path[1];
+      const full = findUniqueCapturePath(from, to, side, !!piece.king);
+      if (full) path = full;
+    }
+
+    pieces.delete(from);
+
+    if (capture){
+      for (let i=0;i<path.length-1;i++){
+        removeCapturedBetween(path[i], path[i+1], side);
+      }
+    }
+
+    const to = path[path.length-1];
+    pieces.set(to, piece);
+    promoteIfNeeded(to);
+    return true;
+  }
+
+  // ============================================================
+  //  UI / navigation : on transforme une "ligne" (root + choix de variantes)
+  //  en liste de coups linéaire (moves[]), et on peut changer de branche.
+  // ============================================================
+  const firstBtn = document.getElementById('first');
+  const prevBtn  = document.getElementById('prev');
+  const playBtn  = document.getElementById('play');
+  const nextBtn  = document.getElementById('next');
+  const lastBtn  = document.getElementById('last');
+  const info     = document.getElementById('info');
+  const msg      = document.getElementById('msg');
+  const gameSel  = document.getElementById('gameSel');
+
+  const varSel   = document.getElementById('varSel');
+  const varUp    = document.getElementById('varUp');
+  const varPath  = document.getElementById('varPath');
+
+  let timer = null;
+
+  let allGames = [];
+  let currentGameIndex = 1;
+
+  let gameRoot = null;
+
+  // "Chemin de variantes" : tableau d’étapes { anchorNodeId, varIndex }
+  // anchorNodeId = id du node après lequel la variante est attachée
+  let branchPath = []; // [] = mainline
+
+  // moves linéaires de la branche courante
+  let moves = [];     // [{move, side}]
+  let plyIndex = 0;
+
+  // pour reconstruire la position correctement (FEN + side)
+  let currentGameText = '';
+
+  function stop(){
+    if (timer){ clearInterval(timer); timer=null; }
+    playBtn.textContent = '▶︎';
+  }
+  function showError(t){ msg.textContent = t || ''; }
+
+  function buildMeta(){
+    const gameText = currentGameText || '';
+    const event = getTag(gameText, 'Event');
+    const date  = getTag(gameText, 'Date');
+    const white = getTag(gameText, 'White');
+    const black = getTag(gameText, 'Black');
+    const fen   = getTag(gameText, 'FEN');
+    const fenInfo = fen ? 'FEN' : '';
+    return [`Partie ${currentGameIndex}`, event, date, (white && black) ? (white+' / '+black) : '', fenInfo]
+      .filter(Boolean).join(' — ');
+  }
+
+  function updateUI(){
+    firstBtn.disabled = (plyIndex===0);
+    prevBtn.disabled  = (plyIndex===0);
+    nextBtn.disabled  = (plyIndex===moves.length);
+    lastBtn.disabled  = (plyIndex===moves.length);
+    info.textContent = `Demi-temps ${plyIndex}/${moves.length} — ${buildMeta()}`;
+  }
+
+  function setStartPositionFromGameText(){
+    resetInitial();
+    // si FEN => remplace la position initiale
+    setupFromFENTags(currentGameText);
+  }
+
+  function rebuildTo(index){
+    setStartPositionFromGameText();
+    for (let i=0;i<index;i++){
+      applyOne(moves[i].move, moves[i].side);
+    }
+    plyIndex = index;
+    renderBoard();
+    updateUI();
+  }
+
+  function stepNext(){
+    if (plyIndex>=moves.length) { stop(); return; }
+    const m = moves[plyIndex];
+    applyOne(m.move, m.side);
+    plyIndex++;
+    renderBoard();
+    updateUI();
+  }
+
+  function stepPrev(){
+    if (plyIndex<=0) return;
+    rebuildTo(plyIndex-1);
+  }
+
+  function goFirst(){ stop(); rebuildTo(0); }
+  function goLast(){ stop(); rebuildTo(moves.length); }
+
+  firstBtn.addEventListener('click', goFirst);
+  lastBtn.addEventListener('click', goLast);
+  prevBtn.addEventListener('click', () => { stop(); stepPrev(); });
+  nextBtn.addEventListener('click', () => { stop(); stepNext(); });
+
+  playBtn.addEventListener('click', () => {
+    if (timer){ stop(); return; }
+    timer = setInterval(() => {
+      if (plyIndex>=moves.length){ stop(); return; }
+      stepNext();
+    }, 650);
+    playBtn.textContent = '⏸';
+  });
+
+  // ============================================================
+  //  Construction d’une branche linéaire à partir du root + branchPath
+  // ============================================================
+  function followMainlineFrom(node){
+    const out = [];
+    let cur = node.next;
+    while (cur){
+      out.push(cur);
+      cur = cur.next;
+    }
+    return out;
+  }
+
+  function nodeById(root, id){
+    // DFS léger
+    const stack = [root];
+    while (stack.length){
+      const n = stack.pop();
+      if (!n) continue;
+      if (n.id === id) return n;
+      if (n.next) stack.push(n.next);
+      for (const v of n.vars) if (v) stack.push(v);
+    }
+    return null;
+  }
+
+  function buildBranchFromPath(root, path){
+    // Règle : on part de root, on suit la ligne principale
+    // et à chaque étape de "path" on remplace la continuation (à partir de l’ancre) par la variante choisie.
+    //
+    // Pour simplifier et être fiable:
+    // - on construit une liste de nodes de la mainline
+    // - quand on rencontre une ancre (nodeId), on prend sa variante varIndex comme continuation
+    //
+    const anchorMap = new Map(); // id -> varIndex
+    for (const step of path){
+      anchorMap.set(step.anchorId, step.varIndex);
+    }
+
+    const linear = [];
+    let side = startSide; // sera recalculé ensuite, mais utile si besoin
+    let cur = root;
+
+    // On avance coup par coup, en choisissant la continuation:
+    // - par défaut: cur.next
+    // - si cur a une variante sélectionnée: cur.vars[varIndex]
+    // Une variante est une chaîne dont la tête a parent = cur
+    while (true){
+      let nxt = null;
+
+      if (anchorMap.has(cur.id)){
+        const vi = anchorMap.get(cur.id);
+        nxt = cur.vars[vi] || null;
+      }else{
+        nxt = cur.next || null;
+      }
+
+      if (!nxt) break;
+      linear.push(nxt);
+      cur = nxt;
+    }
+
+    // Convertir en moves[] avec alternance depuis startSide, MAIS :
+    // chaque node stocke déjà le side du coup au moment du parsing, ce qui est plus sûr.
+    const outMoves = linear.map(n => ({ move:n.move, side:n.side, nodeId:n.id }));
+    return outMoves;
+  }
+
+  function buildVarUI(){
+    // Remplit varSel avec les variantes disponibles au demi-temps courant (position après le node courant)
+    // Ici, le "node courant" est :
+    // - root si plyIndex==0
+    // - sinon le node correspondant au dernier demi-temps joué dans la branche
+    //
+    // Pour retrouver ce node, on utilise moves[plyIndex-1].nodeId
+    const curNodeId = (plyIndex===0) ? gameRoot.id : moves[plyIndex-1].nodeId;
+    const curNode = nodeById(gameRoot, curNodeId);
+    const vars = curNode ? curNode.vars : [];
+
+    // Décrire le chemin actuel
+    if (!branchPath.length){
+      varPath.textContent = 'Ligne principale';
+    }else{
+      const parts = branchPath.map((st, k) => `Var${k+1}`);
+      varPath.textContent = parts.join(' → ');
+    }
+
+    // Remplir select
+    varSel.innerHTML = '';
+    const optMain = document.createElement('option');
+    optMain.value = 'main';
+    optMain.textContent = 'Ligne principale (depuis ici)';
+    varSel.appendChild(optMain);
+
+    for (let i=0;i<vars.length;i++){
+      const head = vars[i];
+      const label = head && head.move ? head.move.raw : '(variante)';
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = `Variante ${i+1} : ${label}`;
+      varSel.appendChild(opt);
+    }
+
+    varUp.disabled = (branchPath.length === 0);
+  }
+
+  function switchToVariationFromCurrent(varIndex){
+    // On branche à la position actuelle (node courant)
+    const curNodeId = (plyIndex===0) ? gameRoot.id : moves[plyIndex-1].nodeId;
+    const curNode = nodeById(gameRoot, curNodeId);
+    if (!curNode || !curNode.vars || !curNode.vars[varIndex]) return;
+
+    // On ajoute une étape dans branchPath
+    branchPath = branchPath.concat([{ anchorId: curNode.id, varIndex }]);
+
+    // Rebuild moves + retourner à la position actuelle (plyIndex inchangé)
+    const savedPly = plyIndex;
+    moves = buildBranchFromPath(gameRoot, branchPath);
+    // sécurité: si la nouvelle branche est plus courte, clamp
+    plyIndex = Math.min(savedPly, moves.length);
+    rebuildTo(plyIndex);
+    buildVarUI();
+  }
+
+  function backToParentBranch(){
+    if (!branchPath.length) return;
+    const savedPly = plyIndex;
+    branchPath = branchPath.slice(0, -1);
+    moves = buildBranchFromPath(gameRoot, branchPath);
+    plyIndex = Math.min(savedPly, moves.length);
+    rebuildTo(plyIndex);
+    buildVarUI();
+  }
+
+  varSel.addEventListener('change', () => {
+    const v = varSel.value;
+    if (v === 'main') {
+      // Retour à la ligne principale *depuis la position actuelle* :
+      // on retire toute branche dont l’ancre est la position actuelle ou après
+      // (simple: on revient complètement à la ligne principale)
+      const savedPly = plyIndex;
+      branchPath = [];
+      moves = buildBranchFromPath(gameRoot, branchPath);
+      plyIndex = Math.min(savedPly, moves.length);
+      rebuildTo(plyIndex);
+      buildVarUI();
+      return;
+    }
+    const idx = parseInt(v, 10);
+    if (!Number.isFinite(idx)) return;
+    stop();
+    switchToVariationFromCurrent(idx);
+  });
+
+  varUp.addEventListener('click', () => {
+    stop();
+    backToParentBranch();
+  });
+
+  // ============================================================
+  //  Partie / selector
+  // ============================================================
+  function fillSelector(){
+    gameSel.innerHTML = '';
+    for (let i=0;i<allGames.length;i++){
+      const g = allGames[i];
+      const white = getTag(g,'White');
+      const black = getTag(g,'Black');
+      const event = getTag(g,'Event');
+      const opt = document.createElement('option');
+      opt.value = String(i+1);
+      const labelPlayers = (white||black) ? `${white} / ${black}` : '';
+      opt.textContent = [`Partie ${i+1}`, labelPlayers, event].filter(Boolean).join(' — ');
+      gameSel.appendChild(opt);
+    }
+    gameSel.value = String(currentGameIndex);
+  }
+
+  function getHashPly(){
+    // ex: #111 (lidraughts)
+    const h = (location.hash || '').replace('#','').trim();
+    const n = parseInt(h, 10);
+    return Number.isFinite(n) && n>=0 ? n : null;
+  }
+
+  function setGame(index, opts={}){
+    stop();
+    currentGameIndex = Math.max(1, Math.min(index, allGames.length || 1));
+    currentGameText = allGames[currentGameIndex-1] || allGames[0] || '';
+
+    // construire arbre
+    gameRoot = buildGameTree(currentGameText);
+
+    // reset branche
+    branchPath = [];
+    // IMPORTANT: startSide peut être modifié par FEN -> on le recalcule proprement ici
+    // (buildGameTree a déjà fait resetInitial + setupFromFENTags)
+    // Donc startSide est déjà OK après buildGameTree, mais rebuildTo va recharger depuis tags.
+    moves = buildBranchFromPath(gameRoot, branchPath);
+
+    // départ
+    rebuildTo(0);
+    fillSelector();
+    showError(moves.length ? '' : 'PDN chargé, mais aucun coup détecté.');
+
+    // Jump demi-temps (hash ou opts.ply)
+    const hashPly = getHashPly();
+    const target = Number.isFinite(opts.ply) ? opts.ply : (hashPly ?? null);
+    if (target !== null){
+      const clamp = Math.max(0, Math.min(target, moves.length));
+      rebuildTo(clamp);
+    }
+
+    buildVarUI();
+  }
+
+  gameSel.addEventListener('change', () => {
+    const v = parseInt(gameSel.value, 10);
+    if (!Number.isFinite(v)) return;
+    setGame(v);
+  });
+
+  // ============================================================
+  //  SNAP taille
+  // ============================================================
+  function snapBoardSize(){
+    const max = 480;
+    const desired = Math.min(window.innerWidth * 0.88, max);
+    const snapped = Math.max(300, Math.floor(desired / 10) * 10);
+    document.documentElement.style.setProperty('--w', snapped + 'px');
+  }
+  window.addEventListener('resize', snapBoardSize);
+  setTimeout(snapBoardSize, 0);
+  setTimeout(snapBoardSize, 200);
+
+  // ============================================================
+  //  Entrée PDN via postMessage + handshake READY
+  //  Supporte aussi { type:'OPL_PDN', pdn:'...', ply:111, game:1 }
+  // ============================================================
+  function loadFromPDNText(pdnText, opts={}){
+    allGames = splitGames(pdnText || '');
+    if (!allGames.length){
+      allGames = [''];
+    }
+    currentGameIndex = 1;
+    fillSelector();
+    setGame(opts.game || 1, { ply: opts.ply });
+    showError('');
+  }
+
+  // Affichage initial
+  resetInitial();
+  renderBoard();
+  updateUI();
+  showError('En attente de la partie…');
+  varPath.textContent = 'Ligne principale';
+
+  // READY
+  try { window.parent.postMessage({ type:'OPL_READY' }, '*'); } catch(_e){}
+
+  // Réception du PDN
+  window.addEventListener('message', (e) => {
+    if (!e.data) return;
+
+    // 1) Chargement PDN
+    if (e.data.type === 'OPL_PDN'){
+      if (typeof e.data.pdn !== 'string' || !e.data.pdn.trim()) return;
+      stop();
+      loadFromPDNText(e.data.pdn, {
+        ply: Number.isFinite(e.data.ply) ? e.data.ply : undefined,
+        game: Number.isFinite(e.data.game) ? e.data.game : undefined
+      });
+      return;
+    }
+
+    // 2) Jump ply sans recharger
+    if (e.data.type === 'OPL_GOTO'){
+      const ply = parseInt(e.data.ply, 10);
+      if (!Number.isFinite(ply) || !moves) return;
+      stop();
+      rebuildTo(Math.max(0, Math.min(ply, moves.length)));
+      buildVarUI();
+      return;
+    }
+  });
+
+})();
+</script>
+</body>
+</html>
