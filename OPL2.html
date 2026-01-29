@@ -240,9 +240,16 @@
     <div id="msg" class="msg"></div>
   </div>
 
+  <!-- Optionnel : PDN embarqué dans l’iframe
+       <script type="text/plain" id="opl-pdn"> ... </script>
+       Appel : OPL2.html?src=opl-pdn#111
+  -->
+
 <script>
 (() => {
-  // ========== Helpers cases ==========
+  // ============================================================
+  //  Helpers cases
+  // ============================================================
   function rcFromN(n){
     const i=n-1, r=Math.floor(i/5), k=i%5;
     const c=(r%2===0)?(1+2*k):(0+2*k);
@@ -256,7 +263,9 @@
   }
   function inside(r,c){ return r>=0&&r<10&&c>=0&&c<10; }
 
-  // ========== Board model ==========
+  // ============================================================
+  //  Board model
+  // ============================================================
   const pieces=new Map();
   function promoteIfNeeded(n){
     const p=pieces.get(n);
@@ -296,7 +305,9 @@
     }
   }
 
-  // ========== PDN split/tags ==========
+  // ============================================================
+  //  PDN split/tags
+  // ============================================================
   function splitGames(pdnText){
     const txt=(pdnText||'').replace(/\r\n/g,'\n');
     const idx=[], re=/^\s*\[Event\s+/gmi;
@@ -323,7 +334,9 @@
     return body;
   }
 
-  // ========== FEN (10x10) ==========
+  // ============================================================
+  //  FEN (10x10)
+  // ============================================================
   function parseFEN10x10(fen){
     const out={ok:false, side:'w', pieces:new Map()};
     if (!fen || typeof fen!=='string') return out;
@@ -332,6 +345,7 @@
     if (!m) return out;
     out.side=(m[1].toUpperCase()==='W')?'w':'b';
     const segs=m[2].split(':').map(s=>s.trim()).filter(Boolean);
+
     function addPiece(color, king, n){
       if (n<1||n>50) return;
       out.pieces.set(n,{color, king:!!king});
@@ -354,12 +368,14 @@
         if (Number.isFinite(n)) addPiece(color,king,n);
       }
     }
+
     for (const seg of segs){
       const sm=seg.match(/^([WB])(.+)$/i);
       if (!sm) continue;
       const col=(sm[1].toUpperCase()==='W')?'w':'b';
       parseList(col, sm[2]);
     }
+
     out.ok=true;
     return out;
   }
@@ -376,7 +392,9 @@
     return { startSide:'w', startPieces:m };
   }
 
-  // ========== Apply move ==========
+  // ============================================================
+  //  Apply move (incl. capture path reconstruction)
+  // ============================================================
   function clonePiecesMap(src){
     const m=new Map();
     for (const [k,v] of src.entries()) m.set(k,{color:v.color, king:!!v.king});
@@ -497,9 +515,16 @@
     return true;
   }
 
-  // ========== Variantes (arbre) + annotations ==========
+  // ============================================================
+  //  Variantes + annotations : arbre
+  //  FIX PRINCIPAL :
+  //  - Une parenthèse après un coup est une ALTERNATIVE à ce coup,
+  //    donc la variante se branche sur la position AVANT le coup.
+  //  - La variante démarre avec le MÊME camp au trait que le coup remplacé.
+  // ============================================================
   let nodeStore=new Map();
   const ROOT='ROOT';
+
   function resetTree(){
     nodeStore=new Map();
     nodeStore.set(ROOT,{id:ROOT, move:null, comment:'', children:[], parentId:null});
@@ -558,6 +583,7 @@
     let side=sideStart;
     const seq=[];
     let lastNodeId=null;
+    let lastMoveSide=null; // camp qui a joué le dernier coup lu dans cette séquence
 
     while (idxRef.i<tokens.length){
       const tk=tokens[idxRef.i];
@@ -565,10 +591,29 @@
       if (tk.t===')') break;
 
       if (tk.t==='('){
-        idxRef.i++;
-        const branchPointId=lastNodeId||parentId;
-        const varSeq=parseSequence(tokens, idxRef, side, branchPointId);
-        if (tokens[idxRef.i] && tokens[idxRef.i].t===')') idxRef.i++;
+        idxRef.i++; // skip '('
+
+        // VARIANTE = alternative au coup précédemment lu :
+        // branchement sur la position AVANT ce coup => parent du lastNodeId
+        let branchPointId = parentId;
+        let sideVarStart  = sideStart;
+
+        if (lastNodeId){
+          const last = nodeStore.get(lastNodeId);
+          branchPointId = (last && last.parentId) ? last.parentId : parentId;
+
+          // La variante démarre avec le même camp au trait que le coup remplacé
+          sideVarStart = lastMoveSide ?? sideStart;
+        } else {
+          // variante sans coup précédent dans la séquence courante :
+          // on la branche sur le parent courant et elle démarre au sideStart
+          branchPointId = parentId;
+          sideVarStart  = sideStart;
+        }
+
+        const varSeq = parseSequence(tokens, idxRef, sideVarStart, branchPointId);
+
+        if (tokens[idxRef.i] && tokens[idxRef.i].t===')') idxRef.i++; // consume ')'
 
         const bp=nodeStore.get(branchPointId);
         bp.children.push(varSeq);
@@ -588,11 +633,15 @@
         if (!isMoveWord(w)){ idxRef.i++; continue; }
         const mv=parseMoveToken(w);
         if (!mv){ idxRef.i++; continue; }
+
         mv.side=side;
 
         const nid=newNode(parentId,mv);
         seq.push(nid);
         lastNodeId=nid;
+        lastMoveSide=side;
+
+        // Le coup vient d’être joué : la suite continue depuis ce node
         parentId=nid;
         side=(side==='w')?'b':'w';
         idxRef.i++;
@@ -615,6 +664,9 @@
     return mainSeq;
   }
 
+  // ============================================================
+  //  Branch selection state
+  // ============================================================
   const decisions=new Map();  // branchPointNodeId -> chosenVariationIndex(1..)
   const historyStack=[];      // {branchPointId, prevChoice, plyAtChoice}
   function clearDecisions(){ decisions.clear(); historyStack.length=0; }
@@ -624,11 +676,13 @@
     function walkSeq(seq){
       for (const nid of seq){
         line.push(nid);
+
         const n=nodeStore.get(nid);
         const choice=decisions.has(nid)?decisions.get(nid):0;
+
         if (n.children && n.children.length && choice>0 && n.children[choice-1]){
           walkSeq(n.children[choice-1]);
-          return;
+          return; // stop main continuation after branching
         }
       }
     }
@@ -638,7 +692,9 @@
     return line;
   }
 
-  // ========== UI ==========
+  // ============================================================
+  //  UI
+  // ============================================================
   const firstBtn=document.getElementById('first');
   const prevBtn=document.getElementById('prev');
   const playBtn=document.getElementById('play');
@@ -656,7 +712,6 @@
   const crumb=document.getElementById('crumb');
 
   let timer=null;
-
   let allGames=[];
   let currentGameIndex=1;
 
@@ -678,8 +733,8 @@
     if (a==='??') return 'Gaffe';
     if (a==='?!') return 'Imprécision';
     if (a==='!?') return 'Intéressant';
-    if (a==='!') return 'Bon';
-    if (a==='?') return 'Douteux';
+    if (a==='!')  return 'Bon';
+    if (a==='?')  return 'Douteux';
     return a;
   }
 
@@ -788,20 +843,27 @@
       commentBox.textContent=cm?cm:'—';
     }
 
-    // variantes à la position courante : après le dernier coup (branchpoint = node à plyIndex-1)
+    // Variantes à la position COURANTE :
+    // point = dernier coup joué (plyIndex-1), ou ROOT au départ.
     varList.innerHTML='';
     let bpId=null;
     let bpLabel='';
-    if (plyIndex===0){ bpId=ROOT; bpLabel='Départ'; }
-    else { bpId=activeLine[plyIndex-1]; bpLabel=nodeStore.get(bpId)?.move?.raw||'Position'; }
+    if (plyIndex===0){
+      bpId=ROOT;
+      bpLabel='Départ';
+    } else {
+      bpId=activeLine[plyIndex-1];
+      bpLabel=nodeStore.get(bpId)?.move?.raw||'Position';
+    }
 
     const bp=nodeStore.get(bpId);
     const vars=(bp && bp.children)?bp.children:[];
-    const branchInfo=historyStack.length?`Choix: ${historyStack.length}`:'Ligne principale';
-    crumb.innerHTML=`<span class="badge">${branchInfo}</span> <span style="margin-left:6px;">Point: ${bpLabel}</span>`;
 
-    // bp.children[0] = mainline (uniquement sur ROOT). Sur les noeuds, bp.children = variantes.
-    const varSeqs = (bpId===ROOT) ? (vars.slice(1)) : vars;
+    const branchInfo=historyStack.length?`Choix: ${historyStack.length}`:'Ligne principale';
+    crumb.innerHTML=`<span class="badge">${branchInfo}</span> <span style="margin-left:6px;">Point : ${bpLabel}</span>`;
+
+    // Sur ROOT : children[0] = ligne principale, les suivantes sont des variantes éventuelles du départ
+    const varSeqs = (bpId===ROOT) ? vars.slice(1) : vars;
 
     if (!varSeqs.length){
       const div=document.createElement('div');
@@ -832,6 +894,7 @@
         decisions.set(bpId, i+1);
         historyStack.push({branchPointId:bpId, prevChoice, plyAtChoice:plyIndex});
         activeLine=buildActiveLine();
+        // On reste au même demi-temps (position inchangée), la suite changera dès le prochain coup
         rebuildTo(Math.min(plyIndex, activeLine.length));
       });
 
@@ -880,7 +943,9 @@
     setGame(v, 0);
   });
 
-  // ========== URL params ?src=... and #ply ==========
+  // ============================================================
+  //  URL params ?src=... and #ply
+  // ============================================================
   function getQueryParam(name){
     try{ return new URL(location.href).searchParams.get(name); }catch(_e){ return null; }
   }
@@ -906,7 +971,9 @@
     showError('');
   }
 
-  // ========== responsive width snap ==========
+  // ============================================================
+  //  Responsive width snap
+  // ============================================================
   function snapBoardSize(){
     const max=560;
     const desired=Math.min(window.innerWidth*0.92, max);
@@ -917,7 +984,9 @@
   setTimeout(snapBoardSize,0);
   setTimeout(snapBoardSize,200);
 
-  // ========== init ==========
+  // ============================================================
+  //  Init
+  // ============================================================
   const std=new Map();
   for (let n=31;n<=50;n++) std.set(n,{color:'w',king:false});
   for (let n=1;n<=20;n++)  std.set(n,{color:'b',king:false});
@@ -956,6 +1025,12 @@
       const gameIndex=Number.isFinite(game)?game:1;
       stop();
       loadFromPDNText(pdn, plyToJump, gameIndex);
+    }
+    if (e.data.type==='OPL_GOTO'){
+      const ply=parseInt(e.data.ply,10);
+      if (!Number.isFinite(ply)) return;
+      stop();
+      rebuildTo(ply);
     }
   });
 
