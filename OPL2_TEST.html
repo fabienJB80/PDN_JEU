@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Test OPL2 – Lecture PDN local / distant</title>
+
+<style>
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background:#f4f4f4;
+  margin:0;
+  padding:20px;
+}
+.wrapper {
+  max-width:1200px;
+  margin:0 auto;
+  background:#ffffff;
+  border:1px solid #c8a28a;
+  border-radius:14px;
+  padding:18px;
+}
+h1 {
+  margin:0 0 12px 0;
+  color:#6b3f2c;
+}
+.controls {
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:14px;
+  margin-bottom:18px;
+}
+.control-box {
+  background:#f7efe9;
+  border:1px solid #d6b8a6;
+  border-radius:12px;
+  padding:12px;
+}
+.control-box label {
+  font-weight:bold;
+  color:#6b3f2c;
+  display:block;
+  margin-bottom:6px;
+}
+input[type="text"] {
+  width:100%;
+  padding:8px;
+  border-radius:8px;
+  border:1px solid #c8a28a;
+}
+input[type="file"] {
+  width:100%;
+}
+button {
+  margin-top:8px;
+  padding:8px 14px;
+  border-radius:10px;
+  border:0;
+  background:#6b3f2c;
+  color:#fff;
+  font-weight:bold;
+  cursor:pointer;
+}
+button:hover {
+  background:#553022;
+}
+#opl2-container {
+  margin-top:18px;
+  padding:12px;
+  border:1px solid #c8a28a;
+  border-radius:14px;
+  background:#ffffff;
+}
+.note {
+  margin-top:10px;
+  font-size:13px;
+  color:#7a5a45;
+}
+</style>
+
+<!-- OPL2 -->
+<script src="https://lidraughts.org/js/opl/opl2.js"></script>
+<link rel="stylesheet" href="https://lidraughts.org/css/opl/opl2.css">
+</head>
+
+<body>
+
+<div class="wrapper">
+  <h1>OPL2 – Test PDN local ou distant</h1>
+
+  <div class="controls">
+
+    <!-- PDN local -->
+    <div class="control-box">
+      <label>Charger un fichier PDN local</label>
+      <input type="file" id="pdnFile" accept=".pdn">
+      <button onclick="loadLocalPDN()">Charger le PDN</button>
+    </div>
+
+    <!-- PDN distant -->
+    <div class="control-box">
+      <label>Charger un PDN distant (URL)</label>
+      <input type="text" id="pdnUrl"
+        value="https://raw.codeberg.page/BRUIANT/PDN/LIGUE/Indiv2526/Position_indiv_J3.pdn">
+      <button onclick="loadRemotePDN()">Charger depuis l’URL</button>
+    </div>
+
+  </div>
+
+  <!-- Zone OPL2 -->
+  <div id="opl2-container">
+    <div id="opl2"></div>
+  </div>
+
+  <div class="note">
+    ✔ OPL2 lit les annotations simples et les commentaires.<br>
+    ⚠ Les variantes sont lues mais non navigables.
+  </div>
+</div>
+
+<script>
+let oplInstance = null;
+
+function initOPL(pdnText) {
+  document.getElementById("opl2").innerHTML = "";
+  oplInstance = OPL2({
+    element: document.getElementById("opl2"),
+    pdn: pdnText,
+    options: {
+      showNotation: true,
+      showComments: true
+    }
+  });
+}
+
+function loadLocalPDN() {
+  const fileInput = document.getElementById("pdnFile");
+  if (!fileInput.files.length) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    initOPL(e.target.result);
+  };
+  reader.readAsText(fileInput.files[0], "UTF-8");
+}
+
+function loadRemotePDN() {
+  const url = document.getElementById("pdnUrl").value;
+  if (!url) return;
+
+  fetch(url)
+    .then(r => r.text())
+    .then(pdn => initOPL(pdn))
+    .catch(err => alert("Erreur de chargement du PDN"));
+}
+</script>
+
+</body>
+</html>
