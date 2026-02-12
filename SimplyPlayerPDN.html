@@ -54,6 +54,17 @@
       color:#3b2a16;
     }
 
+    /* ===== SCORE (ligne dédiée) ===== */
+    .score{
+      text-align:center;
+      font-size:13px;
+      font-weight:800;
+      color:#3b2a16;
+      user-select:none;
+      margin-top:-4px;
+    }
+    .score:empty{ display:none; }
+
     .board{
       width:100%;
       aspect-ratio:1/1;
@@ -78,16 +89,35 @@
     .light{background:var(--light)}
     .dark{background:var(--dark)}
 
+    /* ===== NUMEROTATION TOUJOURS VISIBLE ===== */
     .num{
       position:absolute;
       top:3px; left:5px;
       font-size:12px;
-      opacity:.50;
+      font-weight:800;
+      opacity:.95;
       color:#000;
       user-select:none;
       line-height:1;
+      z-index:5;               /* AU-DESSUS des pions */
+      pointer-events:none;
+      text-shadow:
+        -1px 0 rgba(255,255,255,.90),
+         1px 0 rgba(255,255,255,.90),
+         0 -1px rgba(255,255,255,.90),
+         0  1px rgba(255,255,255,.90),
+         0  0 2px rgba(0,0,0,.25);
     }
-    .dark .num{color:#fff; opacity:.65}
+    .dark .num{
+      color:#fff;
+      opacity:.95;
+      text-shadow:
+        -1px 0 rgba(0,0,0,.80),
+         1px 0 rgba(0,0,0,.80),
+         0 -1px rgba(0,0,0,.80),
+         0  1px rgba(0,0,0,.80),
+         0  0 2px rgba(0,0,0,.20);
+    }
 
     .piece{
       width:72%;
@@ -98,6 +128,8 @@
       justify-content:center;
       box-shadow: inset 0 3px 0 rgba(255,255,255,.18), 0 6px 12px rgba(0,0,0,.30);
       border:1px solid rgba(0,0,0,.30);
+      position:relative;
+      z-index:2;               /* SOUS les numéros */
     }
     .w{background:#f6f1e8}
     .b{background:#1a1a1a}
@@ -165,6 +197,9 @@
         <option>Chargement…</option>
       </select>
     </div>
+
+    <!-- SCORE (ligne dédiée) -->
+    <div id="score" class="score"></div>
 
     <div id="board" class="board" aria-label="Damier"></div>
 
@@ -356,7 +391,6 @@
         const fp = map.get(firstPieceN);
         if (!fp || fp.color !== opp) continue;
 
-        // cases d'atterrissage possibles derrière la pièce adverse jusqu'au prochain obstacle
         rr += dr; cc += dc;
         while (inside(rr,cc)){
           const nn = nFromRC(rr,cc);
@@ -370,7 +404,7 @@
     }
 
     function dfs(current, map, path){
-      if (results.length > 1) return; // on coupe si ambigu
+      if (results.length > 1) return;
       if (current === to && path.length > 1){
         pushResult(path);
         return;
@@ -396,14 +430,13 @@
       }
     }
 
-    // sanity: la case "from" doit contenir la bonne pièce
     const p0 = startMap.get(from);
     if (!p0 || p0.color !== side) return null;
 
     dfs(from, startMap, [from]);
 
     if (results.length === 1) return results[0];
-    return null; // 0 ou >1
+    return null;
   }
 
   // ------------------ Apply moves ------------------
@@ -435,12 +468,10 @@
     const piece = pieces.get(from);
     if (!piece || piece.color !== side) return false;
 
-    // Si capture en notation courte (A x B), reconstruire le chemin unique (A x ... x B)
     if (capture && path.length === 2){
       const to = path[1];
       const full = findUniqueCapturePath(from, to, side, !!piece.king);
       if (full) path = full;
-      // si pas unique (0 ou >1), on laisse tel quel => retirera au mieux une pièce
     }
 
     pieces.delete(from);
@@ -466,6 +497,7 @@
   const info     = document.getElementById('info');
   const msg      = document.getElementById('msg');
   const gameSel  = document.getElementById('gameSel');
+  const scoreEl  = document.getElementById('score');
 
   let timer = null;
   let moves = [];
@@ -526,12 +558,12 @@
     playBtn.textContent = '⏸';
   });
 
-  // ------------------ Labels ------------------
+  // ------------------ Labels (SANS score dans le menu) ------------------
   function labelGame(i, gameText){
     const white = (getTag(gameText, 'White') || '').trim();
     const black = (getTag(gameText, 'Black') || '').trim();
-    const both  = (white && black) ? (white + ' vs ' + black) : (white || black || 'Partie');
-    return `${i+1} — ${both}`;
+    const both  = (white && black) ? (white + ' / ' + black) : (white || black || 'Partie');
+    return `${i+1} — ${both}`;     // ✅ pas de Result ici
   }
 
   function shortEvent(ev){
@@ -544,6 +576,12 @@
     if (!games[currentGameIndex]) return '';
     const ev = shortEvent(getTag(games[currentGameIndex], 'Event'));
     return ev || '';
+  }
+
+  function updateScoreLine(){
+    if (!games[currentGameIndex] || !scoreEl) return;
+    const r = (getTag(games[currentGameIndex], 'Result') || '').trim();
+    scoreEl.textContent = (r && r !== '*') ? ('Score : ' + r) : '';
   }
 
   // ------------------ Build moves for a game ------------------
@@ -600,6 +638,7 @@
     moves = buildMovesFromGame(games[currentGameIndex]);
     rebuildTo(0);
     fillSelect();
+    updateScoreLine();  // ✅ score uniquement ici
     msg.textContent = moves.length ? '' : 'PDN chargé, mais aucun coup détecté (format inattendu ?).';
   }
 
