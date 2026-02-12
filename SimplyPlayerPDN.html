@@ -1,304 +1,713 @@
 <!doctype html>
 <html lang="fr">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>SimplyPlayerPDN</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SimplyPlayerPDN</title>
 
-<style>
-:root{
-  --panel:#f3efe6;
-  --border:#d8cfbf;
-  --light:#efe3cc;
-  --dark:#b98a57;
-  --w:480px;
-}
+  <style>
+    :root{
+      --panel:#f3efe6;
+      --border:#d8cfbf;
+      --light:#efe3cc;
+      --dark:#b98a57;
+      --w: 480px;
+    }
 
-html,body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial}
-body{
-  background:#fff;
-  display:flex;
-  align-items:flex-start;
-  justify-content:center;
-  padding:12px;
-}
+    html,body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial}
+    body{
+      background:#fff;
+      display:flex;
+      align-items:flex-start;
+      justify-content:center;
+      padding:12px;
+    }
 
-.wrap{
-  width:var(--w);
-  max-width:var(--w);
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-}
+    .wrap{
+      width:var(--w);
+      max-width:var(--w);
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
 
-.topbar{
-  display:flex;
-  gap:8px;
-  align-items:center;
-  justify-content:center;
-}
+    .topbar{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      justify-content:center;
+    }
+    .topbar label{
+      font-size:13px;
+      color:#3b2a16;
+      user-select:none;
+    }
+    select{
+      flex:1;
+      min-width:0;
+      padding:8px 10px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:#fff;
+      font-weight:600;
+      font-size:13px;
+      color:#3b2a16;
+    }
 
-.topbar label{
-  font-size:13px;
-  color:#3b2a16;
-  user-select:none;
-}
+    /* ===== SCORE (ligne dédiée) ===== */
+    .score{
+      text-align:center;
+      font-size:13px;
+      font-weight:800;
+      color:#3b2a16;
+      margin-top:-4px;
+      user-select:none;
+    }
+    .score:empty{ display:none; }
 
-select{
-  flex:1;
-  min-width:0;
-  padding:8px 10px;
-  border-radius:10px;
-  border:1px solid var(--border);
-  background:#fff;
-  font-weight:600;
-  font-size:13px;
-  color:#3b2a16;
-}
+    .board{
+      width:100%;
+      aspect-ratio:1/1;
+      display:grid;
+      grid-template-columns:repeat(10,1fr);
+      grid-template-rows:repeat(10,1fr);
+      border:0;
+      outline:1px solid rgba(0,0,0,.12);
+      border-radius:10px;
+      overflow:hidden;
+      box-shadow:0 8px 30px rgba(0,0,0,.18);
+      background:#000;
+    }
+    .sq{
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-width:0;
+      min-height:0;
+    }
+    .light{background:var(--light)}
+    .dark{background:var(--dark)}
 
-/* SCORE */
-.score{
-  text-align:center;
-  font-size:13px;
-  font-weight:800;
-  color:#3b2a16;
-}
-.score:empty{display:none}
+    /* ===== NUMEROS TOUJOURS VISIBLES (même sur pions blancs) ===== */
+    .num{
+      position:absolute;
+      top:3px; left:5px;
+      font-size:12px;
+      font-weight:800;
+      opacity:.95;
+      color:#000;
+      user-select:none;
+      line-height:1;
+      z-index:5;
+      pointer-events:none;
+      text-shadow:
+        -1px 0 rgba(255,255,255,.90),
+         1px 0 rgba(255,255,255,.90),
+         0 -1px rgba(255,255,255,.90),
+         0  1px rgba(255,255,255,.90),
+         0  0 2px rgba(0,0,0,.25);
+    }
+    .dark .num{
+      color:#fff;
+      opacity:.95;
+      text-shadow:
+        -1px 0 rgba(0,0,0,.80),
+         1px 0 rgba(0,0,0,.80),
+         0 -1px rgba(0,0,0,.80),
+         0  1px rgba(0,0,0,.80),
+         0  0 2px rgba(0,0,0,.20);
+    }
 
-/* BOARD */
-.board{
-  width:100%;
-  aspect-ratio:1/1;
-  display:grid;
-  grid-template-columns:repeat(10,1fr);
-  grid-template-rows:repeat(10,1fr);
-  outline:1px solid rgba(0,0,0,.12);
-  border-radius:10px;
-  overflow:hidden;
-  box-shadow:0 8px 30px rgba(0,0,0,.18);
-  background:#000;
-}
+    .piece{
+      width:72%;
+      aspect-ratio:1/1;
+      border-radius:50%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow: inset 0 3px 0 rgba(255,255,255,.18), 0 6px 12px rgba(0,0,0,.30);
+      border:1px solid rgba(0,0,0,.30);
+      position:relative;
+      z-index:2; /* sous les numéros */
+    }
+    .w{background:#f6f1e8}
+    .b{background:#1a1a1a}
 
-.sq{
-  position:relative;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
+    .king::after{
+      content:"K";
+      font-weight:800;
+      font-size:18px;
+      color:rgba(255,255,255,.85);
+      text-shadow:0 1px 0 rgba(0,0,0,.6);
+    }
+    .w.king::after{color:rgba(0,0,0,.75); text-shadow:none}
 
-.light{background:var(--light)}
-.dark{background:var(--dark)}
+    .bar{
+      display:flex;
+      gap:6px;
+      align-items:center;
+      justify-content:center;
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:8px;
+    }
+    button{
+      padding:8px 12px;
+      border-radius:10px;
+      border:1px solid #cdbfa9;
+      background:#fff;
+      cursor:pointer;
+      font-weight:800;
+      min-width:44px;
+      font-size:14px;
+    }
+    button:disabled{opacity:.55; cursor:not-allowed}
 
-/* NUMEROTATION VISIBLE */
-.num{
-  position:absolute;
-  top:3px;
-  left:5px;
-  font-size:12px;
-  font-weight:800;
-  z-index:5;
-  pointer-events:none;
-  text-shadow:
-    -1px 0 rgba(255,255,255,.9),
-     1px 0 rgba(255,255,255,.9),
-     0 -1px rgba(255,255,255,.9),
-     0  1px rgba(255,255,255,.9),
-     0  0 2px rgba(0,0,0,.35);
-}
+    .info{
+      flex:1;
+      text-align:center;
+      font-size:13px;
+      color:#3b2a16;
+      user-select:none;
+      padding:0 8px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      min-width:0;
+    }
 
-.dark .num{
-  color:#fff;
-  text-shadow:
-    -1px 0 rgba(0,0,0,.8),
-     1px 0 rgba(0,0,0,.8),
-     0 -1px rgba(0,0,0,.8),
-     0  1px rgba(0,0,0,.8);
-}
-
-.piece{
-  width:72%;
-  aspect-ratio:1/1;
-  border-radius:50%;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  box-shadow: inset 0 3px 0 rgba(255,255,255,.18), 0 6px 12px rgba(0,0,0,.30);
-  border:1px solid rgba(0,0,0,.30);
-  position:relative;
-  z-index:2;
-}
-
-.w{background:#f6f1e8}
-.b{background:#1a1a1a}
-
-.king::after{
-  content:"K";
-  font-weight:800;
-  font-size:18px;
-  color:rgba(255,255,255,.85);
-  text-shadow:0 1px 0 rgba(0,0,0,.6);
-}
-.w.king::after{
-  color:rgba(0,0,0,.75);
-  text-shadow:none;
-}
-
-/* CONTROLS */
-.bar{
-  display:flex;
-  gap:6px;
-  align-items:center;
-  justify-content:center;
-  background:var(--panel);
-  border:1px solid var(--border);
-  border-radius:10px;
-  padding:8px;
-}
-
-button{
-  padding:8px 12px;
-  border-radius:10px;
-  border:1px solid #cdbfa9;
-  background:#fff;
-  cursor:pointer;
-  font-weight:800;
-  min-width:44px;
-  font-size:14px;
-}
-
-button:disabled{opacity:.55;cursor:not-allowed}
-
-.info{
-  flex:1;
-  text-align:center;
-  font-size:13px;
-  color:#3b2a16;
-  padding:0 8px;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-.msg{
-  color:#b00020;
-  font-family:ui-monospace,Consolas,monospace;
-  font-size:12px;
-  text-align:center;
-  min-height:16px;
-}
-</style>
+    .msg{
+      color:#b00020;
+      font-family:ui-monospace,Consolas,monospace;
+      font-size:12px;
+      text-align:center;
+      opacity:.95;
+      min-height:16px;
+    }
+  </style>
 </head>
 
 <body>
-<div class="wrap">
+  <div class="wrap">
+    <div class="topbar">
+      <label for="gameSel">Partie</label>
+      <select id="gameSel" aria-label="Choisir une partie">
+        <option>Chargement…</option>
+      </select>
+    </div>
 
-  <div class="topbar">
-    <label for="gameSel">Partie</label>
-    <select id="gameSel">
-      <option>Chargement…</option>
-    </select>
+    <!-- Ligne score dédiée -->
+    <div id="score" class="score"></div>
+
+    <div id="board" class="board" aria-label="Damier"></div>
+
+    <div class="bar">
+      <button id="first" title="Début">⏮</button>
+      <button id="prev"  title="Coup précédent">⟵</button>
+      <button id="play"  title="Lecture / Pause">▶︎</button>
+      <button id="next"  title="Coup suivant">⟶</button>
+      <button id="last"  title="Fin">⏭</button>
+      <div id="info" class="info">Chargement…</div>
+    </div>
+
+    <div id="msg" class="msg"></div>
   </div>
-
-  <div id="score" class="score"></div>
-
-  <div id="board" class="board"></div>
-
-  <div class="bar">
-    <button id="first">⏮</button>
-    <button id="prev">⟵</button>
-    <button id="play">▶︎</button>
-    <button id="next">⟶</button>
-    <button id="last">⏭</button>
-    <div id="info" class="info">Chargement…</div>
-  </div>
-
-  <div id="msg" class="msg"></div>
-</div>
 
 <script>
-let games=[],moves=[],plyIndex=0,currentGameIndex=0;
+(() => {
+  // ------------------ Helpers cases 1..50 <-> (r,c) sur cases noires 10x10 ------------------
+  function rcFromN(n){
+    const i = n - 1;
+    const r = Math.floor(i / 5);
+    const k = i % 5;
+    const c = (r % 2 === 0) ? (1 + 2*k) : (0 + 2*k);
+    return [r,c];
+  }
+  function nFromRC(r,c){
+    if ((r+c)%2===0) return null;
+    const k = (r%2===0) ? (c-1)/2 : c/2;
+    if (!Number.isInteger(k) || k<0 || k>4) return null;
+    return r*5 + k + 1;
+  }
+  function inside(r,c){ return r>=0 && r<10 && c>=0 && c<10; }
 
-/* ---------- PDN Helpers ---------- */
-function getTag(txt,name){
-  const re=new RegExp("^\\s*\\["+name+"\\s+\"([^\"]*)\"\\]\\s*$","mi");
-  const m=txt.match(re);
-  return m?m[1]:"";
-}
+  // ------------------ Board model ------------------
+  const pieces = new Map();
 
-function labelGame(i,gameText){
-  const w=(getTag(gameText,'White')||'').trim();
-  const b=(getTag(gameText,'Black')||'').trim();
-  const r=(getTag(gameText,'Result')||'').trim();
-  const both=(w&&b)?w+" / "+b:(w||b||"Partie");
-  return r?`${i+1} — ${both} — ${r}`:`${i+1} — ${both}`;
-}
+  function resetInitial(){
+    pieces.clear();
+    for (let n=31;n<=50;n++) pieces.set(n,{color:'w',king:false}); // blancs en bas
+    for (let n=1;n<=20;n++)  pieces.set(n,{color:'b',king:false}); // noirs en haut
+  }
 
-function updateScoreLine(){
-  const el=document.getElementById('score');
-  const r=getTag(games[currentGameIndex],'Result');
-  el.textContent=(r&&r!=="*")?"Score : "+r:"";
-}
+  function promoteIfNeeded(n){
+    const p = pieces.get(n);
+    if (!p || p.king) return;
+    const [r] = rcFromN(n);
+    if (p.color==='w' && r===0) p.king=true;
+    if (p.color==='b' && r===9) p.king=true;
+  }
 
-/* ---------- Simplified PDN parser ---------- */
-function splitGames(txt){
-  const parts=txt.split(/\n(?=\[Event )/g);
-  return parts;
-}
+  function renderBoard(){
+    const board = document.getElementById('board');
+    board.innerHTML = '';
+    for (let r=0;r<10;r++){
+      for (let c=0;c<10;c++){
+        const sq = document.createElement('div');
+        const dark = (r+c)%2===1;
+        sq.className = 'sq ' + (dark ? 'dark' : 'light');
 
-function buildMoves(gameText){
-  const body=gameText.replace(/^\s*\[[^\]]+\]\s*$/gmi,'')
-                     .replace(/\{[^}]*\}/g,'')
-                     .replace(/\b(1-0|0-1|1\/2-1\/2|\*)\b/g,'');
-  const tokens=body.match(/\d+\.\s*\.{0,2}\s*[^ ]+/g)||[];
-  return tokens;
-}
+        if (dark){
+          const n = nFromRC(r,c);
 
-/* ---------- Basic Board ---------- */
-const board=document.getElementById('board');
-function renderBoard(){
-  board.innerHTML='';
-  for(let r=0;r<10;r++){
-    for(let c=0;c<10;c++){
-      const sq=document.createElement('div');
-      const dark=(r+c)%2===1;
-      sq.className='sq '+(dark?'dark':'light');
-      if(dark){
-        const n=r*5+Math.floor(c/2)+1;
-        const num=document.createElement('div');
-        num.className='num';
-        num.textContent=n;
-        sq.appendChild(num);
+          const num = document.createElement('div');
+          num.className='num';
+          num.textContent = n;
+          sq.appendChild(num);
+
+          const p = pieces.get(n);
+          if (p){
+            const d = document.createElement('div');
+            d.className = 'piece ' + p.color + (p.king?' king':'');
+            sq.appendChild(d);
+          }
+        }
+        board.appendChild(sq);
       }
-      board.appendChild(sq);
     }
   }
-}
 
-/* ---------- Load ---------- */
-async function init(){
-  renderBoard();
-  const params=new URLSearchParams(location.search);
-  const url=params.get('pdn');
-  if(!url){document.getElementById('msg').textContent="Ajouter ?pdn=URL";return;}
-  const text=await fetch(url).then(r=>r.text());
-  games=splitGames(text);
-  const sel=document.getElementById('gameSel');
-  sel.innerHTML='';
-  games.forEach((g,i)=>{
-    const opt=document.createElement('option');
-    opt.value=i;
-    opt.textContent=labelGame(i,g);
-    sel.appendChild(opt);
-  });
-  sel.addEventListener('change',e=>{
-    currentGameIndex=parseInt(e.target.value);
-    updateScoreLine();
-  });
-  currentGameIndex=0;
-  updateScoreLine();
-}
+  // ------------------ PDN parsing ------------------
+  function splitGames(pdnText){
+    const txt = pdnText.replace(/\r\n/g, '\n');
+    const idx = [];
+    const re = /^\s*\[Event\s+/gmi;
+    let m;
+    while ((m = re.exec(txt)) !== null) idx.push(m.index);
+    if (idx.length===0) return [txt];
 
-init();
+    const games = [];
+    for (let i=0;i<idx.length;i++){
+      const start = idx[i];
+      const end = (i+1<idx.length) ? idx[i+1] : txt.length;
+      games.push(txt.slice(start,end).trim());
+    }
+    return games;
+  }
+
+  function getTag(gameText, name){
+    const re = new RegExp('^\\s*\\['+name+'\\s+"([^"]*)"\\]\\s*$', 'mi');
+    const m = gameText.match(re);
+    return m ? m[1] : '';
+  }
+
+  function extractMovesSection(gameText){
+    let body = gameText.replace(/^\s*\[[^\]]+\]\s*$/gmi, '');
+    body = body.replace(/\{[^}]*\}/g, ' ');
+    body = body.replace(/;[^\n]*$/gm, ' ');
+    body = body.replace(/\b(1-0|0-1|1\/2-1\/2|\*)\b/g, ' ');
+    return body;
+  }
+
+  function tokenizeMoves(body){
+    body = body.replace(/\b\d+\s*\.(\.\.)?/g, ' ');
+    body = body.replace(/\s+/g, ' ').trim();
+    if (!body) return [];
+    const raw = body.split(' ');
+    const tokens = [];
+    for (const t of raw){
+      const u = t.trim();
+      if (!u) continue;
+      if (/^\$?\d+$/.test(u)) continue;
+      tokens.push(u);
+    }
+    return tokens;
+  }
+
+  function parseMoveToken(tok){
+    const isCap = tok.includes('x') || tok.includes('X');
+    const sep = isCap ? /x|X/ : /-/;
+    const parts = tok.split(sep).map(s=>parseInt(s,10)).filter(n=>Number.isFinite(n));
+    if (parts.length<2) return null;
+    return { capture:isCap, path:parts };
+  }
+
+  // ------------------ Capture path reconstruction (when PDN gives only A x B) ------------------
+  function clonePiecesMap(src){
+    const m = new Map();
+    for (const [k,v] of src.entries()) m.set(k, {color:v.color, king:!!v.king});
+    return m;
+  }
+
+  function opponent(color){ return color === 'w' ? 'b' : 'w'; }
+
+  function findUniqueCapturePath(from, to, side, isKing){
+    const startMap = clonePiecesMap(pieces);
+    const opp = opponent(side);
+    const results = [];
+
+    function pushResult(path){
+      results.push(path.slice());
+    }
+
+    function manCapturesFrom(pos, map){
+      const [r,c] = rcFromN(pos);
+      const dirs = [[-1,-1],[-1,1],[1,-1],[1,1]];
+      const out = [];
+      for (const [dr,dc] of dirs){
+        const r1=r+dr, c1=c+dc;
+        const r2=r+2*dr, c2=c+2*dc;
+        if (!inside(r2,c2)) continue;
+        const mid = nFromRC(r1,c1);
+        const land = nFromRC(r2,c2);
+        if (!mid || !land) continue;
+        const mp = map.get(mid);
+        if (!mp || mp.color !== opp) continue;
+        if (map.has(land)) continue;
+        out.push({ land, cap: mid });
+      }
+      return out;
+    }
+
+    function kingCapturesFrom(pos, map){
+      const [r,c] = rcFromN(pos);
+      const dirs = [[-1,-1],[-1,1],[1,-1],[1,1]];
+      const out = [];
+      for (const [dr,dc] of dirs){
+        let rr=r+dr, cc=c+dc;
+        let firstPieceN = null;
+        while (inside(rr,cc)){
+          const nn = nFromRC(rr,cc);
+          if (!nn){ rr+=dr; cc+=dc; continue; } // case blanche
+          if (map.has(nn)){
+            firstPieceN = nn;
+            break;
+          }
+          rr+=dr; cc+=dc;
+        }
+        if (!firstPieceN) continue;
+        const fp = map.get(firstPieceN);
+        if (!fp || fp.color !== opp) continue;
+
+        // cases d'atterrissage possibles derrière la pièce adverse jusqu'au prochain obstacle
+        rr += dr; cc += dc;
+        while (inside(rr,cc)){
+          const nn = nFromRC(rr,cc);
+          if (!nn){ rr+=dr; cc+=dc; continue; }
+          if (map.has(nn)) break; // obstacle
+          out.push({ land: nn, cap: firstPieceN });
+          rr+=dr; cc+=dc;
+        }
+      }
+      return out;
+    }
+
+    function dfs(current, map, path){
+      if (results.length > 1) return; // on coupe si ambigu
+      if (current === to && path.length > 1){
+        pushResult(path);
+        return;
+      }
+
+      const nexts = isKing ? kingCapturesFrom(current, map) : manCapturesFrom(current, map);
+      if (nexts.length === 0) return;
+
+      for (const mv of nexts){
+        const map2 = clonePiecesMap(map);
+        const piece = map2.get(current);
+        if (!piece) continue;
+
+        map2.delete(current);
+        map2.delete(mv.cap);
+        map2.set(mv.land, piece);
+
+        const path2 = path.slice();
+        path2.push(mv.land);
+        dfs(mv.land, map2, path2);
+
+        if (results.length > 1) return;
+      }
+    }
+
+    // sanity: la case "from" doit contenir la bonne pièce
+    const p0 = startMap.get(from);
+    if (!p0 || p0.color !== side) return null;
+
+    dfs(from, startMap, [from]);
+
+    if (results.length === 1) return results[0];
+    return null; // 0 ou >1
+  }
+
+  // ------------------ Apply moves ------------------
+  function removeCapturedBetween(a,b,color){
+    const [r1,c1] = rcFromN(a);
+    const [r2,c2] = rcFromN(b);
+    const dr = Math.sign(r2-r1);
+    const dc = Math.sign(c2-c1);
+    if (dr===0 || dc===0) return;
+
+    let r=r1+dr, c=c1+dc;
+    while (r!==r2 && c!==c2){
+      const n = nFromRC(r,c);
+      if (n && pieces.has(n)){
+        const p = pieces.get(n);
+        if (p.color !== color){
+          pieces.delete(n);
+          return;
+        }
+      }
+      r+=dr; c+=dc;
+    }
+  }
+
+  function applyOne(moveObj, side){
+    let {capture, path} = moveObj;
+
+    const from = path[0];
+    const piece = pieces.get(from);
+    if (!piece || piece.color !== side) return false;
+
+    // Si capture en notation courte (A x B), reconstruire le chemin unique (A x ... x B)
+    if (capture && path.length === 2){
+      const to = path[1];
+      const full = findUniqueCapturePath(from, to, side, !!piece.king);
+      if (full) path = full;
+      // si pas unique (0 ou >1), on laisse tel quel => retirera au mieux une pièce
+    }
+
+    pieces.delete(from);
+
+    if (capture){
+      for (let i=0;i<path.length-1;i++){
+        removeCapturedBetween(path[i], path[i+1], side);
+      }
+    }
+
+    const to = path[path.length-1];
+    pieces.set(to, piece);
+    promoteIfNeeded(to);
+    return true;
+  }
+
+  // ------------------ UI / Controls ------------------
+  const firstBtn = document.getElementById('first');
+  const prevBtn  = document.getElementById('prev');
+  const playBtn  = document.getElementById('play');
+  const nextBtn  = document.getElementById('next');
+  const lastBtn  = document.getElementById('last');
+  const info     = document.getElementById('info');
+  const msg      = document.getElementById('msg');
+  const gameSel  = document.getElementById('gameSel');
+  const scoreEl  = document.getElementById('score');
+
+  let timer = null;
+  let moves = [];
+  let plyIndex = 0;
+  let games = [];
+  let currentGameIndex = 0;
+
+  function stop(){
+    if (timer){ clearInterval(timer); timer=null; }
+    playBtn.textContent = '▶︎';
+  }
+
+  function updateUI(meta=''){
+    firstBtn.disabled = (plyIndex===0);
+    prevBtn.disabled  = (plyIndex===0);
+    nextBtn.disabled  = (plyIndex===moves.length);
+    lastBtn.disabled  = (plyIndex===moves.length);
+    info.textContent  = `Coup ${plyIndex}/${moves.length}` + (meta ? ` — ${meta}` : '');
+  }
+
+  function rebuildTo(index){
+    resetInitial();
+    for (let i=0;i<index;i++){
+      applyOne(moves[i], moves[i].side);
+    }
+    plyIndex = index;
+    renderBoard();
+    updateUI(shortMetaForCurrent());
+  }
+
+  function stepNext(){
+    if (plyIndex>=moves.length){ stop(); return; }
+    applyOne(moves[plyIndex], moves[plyIndex].side);
+    plyIndex++;
+    renderBoard();
+    updateUI(shortMetaForCurrent());
+  }
+
+  function stepPrev(){
+    if (plyIndex<=0) return;
+    rebuildTo(plyIndex-1);
+  }
+
+  function goFirst(){ stop(); rebuildTo(0); }
+  function goLast(){ stop(); rebuildTo(moves.length); }
+
+  firstBtn.addEventListener('click', goFirst);
+  lastBtn.addEventListener('click',  goLast);
+  prevBtn.addEventListener('click',  () => { stop(); stepPrev(); });
+  nextBtn.addEventListener('click',  () => { stop(); stepNext(); });
+
+  playBtn.addEventListener('click', () => {
+    if (timer){ stop(); return; }
+    timer = setInterval(() => {
+      if (plyIndex>=moves.length){ stop(); return; }
+      stepNext();
+    }, 650);
+    playBtn.textContent = '⏸';
+  });
+
+  // ------------------ Labels ------------------
+  function labelGame(i, gameText){
+    const white = (getTag(gameText, 'White') || '').trim();
+    const black = (getTag(gameText, 'Black') || '').trim();
+    const both  = (white && black) ? (white + ' / ' + black) : (white || black || 'Partie');
+    return `${i+1} — ${both}`; // ✅ plus de score ici
+  }
+
+  function shortEvent(ev){
+    if (!ev) return '';
+    ev = ev.replace(/\s+/g,' ').trim();
+    return ev.split(',')[0].split(' - ')[0].trim();
+  }
+
+  function shortMetaForCurrent(){
+    if (!games[currentGameIndex]) return '';
+    const ev = shortEvent(getTag(games[currentGameIndex], 'Event'));
+    return ev || '';
+  }
+
+  function updateScoreLine(){
+    if (!games[currentGameIndex] || !scoreEl) return;
+    const r = (getTag(games[currentGameIndex], 'Result') || '').trim();
+    scoreEl.textContent = (r && r !== '*') ? ('Score : ' + r) : '';
+  }
+
+  // ------------------ Build moves for a game ------------------
+  function buildMovesFromGame(gameText){
+    const body = extractMovesSection(gameText);
+    const tokens = tokenizeMoves(body);
+
+    const parsed = [];
+    let side = 'w';
+    for (const tok of tokens){
+      const mo = parseMoveToken(tok);
+      if (!mo) continue;
+      parsed.push({ ...mo, raw:tok, side });
+      side = (side==='w') ? 'b' : 'w';
+    }
+    return parsed;
+  }
+
+  // ------------------ Fetch (avec fallback proxy CORS) ------------------
+  async function fetchTextSmart(url){
+    try{
+      const r = await fetch(url, { cache:'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return await r.text();
+    } catch(_e){
+      const prox = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+      const r2 = await fetch(prox, { cache:'no-store' });
+      if (!r2.ok) throw new Error('HTTP ' + r2.status);
+      return await r2.text();
+    }
+  }
+
+  // ------------------ URL resolver ------------------
+  function resolvePDNUrl(pdnParam){
+    if (/^https?:\/\//i.test(pdnParam)) return pdnParam;
+    return new URL(pdnParam, location.href).href;
+  }
+
+  // ------------------ Game selection ------------------
+  function fillSelect(){
+    gameSel.innerHTML = '';
+    for (let i=0;i<games.length;i++){
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = labelGame(i, games[i]);
+      gameSel.appendChild(opt);
+    }
+    gameSel.value = String(currentGameIndex);
+  }
+
+  function loadGame(index){
+    stop();
+    currentGameIndex = Math.max(0, Math.min(index, games.length-1));
+    moves = buildMovesFromGame(games[currentGameIndex]);
+    rebuildTo(0);
+    fillSelect();
+    updateScoreLine(); // ✅ score ligne dédiée mise à jour
+    msg.textContent = moves.length ? '' : 'PDN chargé, mais aucun coup détecté (format inattendu ?).';
+  }
+
+  gameSel.addEventListener('change', () => {
+    const idx = parseInt(gameSel.value, 10);
+    if (Number.isFinite(idx)) loadGame(idx);
+  });
+
+  // ------------------ SNAP size (iframe-friendly) ------------------
+  function snapBoardSize() {
+    const max = 480;
+    const cw = Math.max(
+      document.documentElement.clientWidth || 0,
+      document.body ? (document.body.clientWidth || 0) : 0
+    );
+    const desired = Math.min(cw * 0.92, max);
+    const snapped = Math.max(300, Math.floor(desired / 10) * 10);
+    document.documentElement.style.setProperty('--w', snapped + 'px');
+  }
+
+  // ------------------ Init ------------------
+  async function init(){
+    resetInitial();
+    renderBoard();
+
+    snapBoardSize();
+    window.addEventListener('resize', snapBoardSize);
+    setTimeout(snapBoardSize, 0);
+    setTimeout(snapBoardSize, 200);
+
+    const params = new URLSearchParams(location.search);
+    const pdnParam = params.get('pdn');
+    const gParam = parseInt(params.get('g') || '1', 10);
+    const gIndex = Number.isFinite(gParam) ? Math.max(1, gParam) : 1;
+
+    if (!pdnParam){
+      updateUI('Paramètre ?pdn= manquant');
+      msg.textContent = 'Ajoute ?pdn=URL_ou_chemin_du_fichier.pdn';
+      return;
+    }
+
+    const pdnUrl = resolvePDNUrl(pdnParam);
+
+    try{
+      msg.textContent = '';
+      updateUI('Chargement…');
+
+      const text = await fetchTextSmart(pdnUrl);
+      games = splitGames(text);
+
+      currentGameIndex = Math.min(gIndex-1, games.length-1);
+      if (currentGameIndex < 0) currentGameIndex = 0;
+
+      fillSelect();
+      loadGame(currentGameIndex);
+
+      updateUI(shortMetaForCurrent());
+    } catch(e){
+      updateUI('Erreur de chargement');
+      msg.textContent = 'Impossible de charger le PDN : ' + e.message;
+    }
+  }
+
+  init();
+})();
 </script>
 </body>
 </html>
