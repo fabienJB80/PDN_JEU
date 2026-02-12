@@ -56,7 +56,7 @@ select{
   color:#3b2a16;
 }
 
-/* ===== SCORE ===== */
+/* SCORE */
 .score{
   text-align:center;
   font-size:13px;
@@ -65,7 +65,7 @@ select{
 }
 .score:empty{display:none}
 
-/* ===== BOARD ===== */
+/* BOARD */
 .board{
   width:100%;
   aspect-ratio:1/1;
@@ -84,21 +84,18 @@ select{
   display:flex;
   align-items:center;
   justify-content:center;
-  min-width:0;
-  min-height:0;
 }
 
 .light{background:var(--light)}
 .dark{background:var(--dark)}
 
-/* ===== NUMEROTATION TOUJOURS VISIBLE ===== */
+/* NUMEROTATION VISIBLE */
 .num{
   position:absolute;
   top:3px;
   left:5px;
   font-size:12px;
   font-weight:800;
-  opacity:.95;
   z-index:5;
   pointer-events:none;
   text-shadow:
@@ -118,7 +115,6 @@ select{
      0  1px rgba(0,0,0,.8);
 }
 
-/* ===== PIECES ===== */
 .piece{
   width:72%;
   aspect-ratio:1/1;
@@ -147,7 +143,7 @@ select{
   text-shadow:none;
 }
 
-/* ===== CONTROLS ===== */
+/* CONTROLS */
 .bar{
   display:flex;
   gap:6px;
@@ -220,37 +216,89 @@ button:disabled{opacity:.55;cursor:not-allowed}
 </div>
 
 <script>
-/* =======================
-   AJOUT SCORE PDN
-======================= */
-function getTag(gameText,name){
+let games=[],moves=[],plyIndex=0,currentGameIndex=0;
+
+/* ---------- PDN Helpers ---------- */
+function getTag(txt,name){
   const re=new RegExp("^\\s*\\["+name+"\\s+\"([^\"]*)\"\\]\\s*$","mi");
-  const m=gameText.match(re);
+  const m=txt.match(re);
   return m?m[1]:"";
+}
+
+function labelGame(i,gameText){
+  const w=(getTag(gameText,'White')||'').trim();
+  const b=(getTag(gameText,'Black')||'').trim();
+  const r=(getTag(gameText,'Result')||'').trim();
+  const both=(w&&b)?w+" / "+b:(w||b||"Partie");
+  return r?`${i+1} — ${both} — ${r}`:`${i+1} — ${both}`;
 }
 
 function updateScoreLine(){
   const el=document.getElementById('score');
-  if(!games[currentGameIndex]){el.textContent="";return;}
   const r=getTag(games[currentGameIndex],'Result');
-  el.textContent=(r && r!=="*")?"Score : "+r:"";
+  el.textContent=(r&&r!=="*")?"Score : "+r:"";
 }
 
-/* =======================
-   LE RESTE DU SCRIPT D’ORIGINE
-   (inchangé sauf ajout updateScoreLine() après loadGame)
-======================= */
+/* ---------- Simplified PDN parser ---------- */
+function splitGames(txt){
+  const parts=txt.split(/\n(?=\[Event )/g);
+  return parts;
+}
 
-/* … 
-   👉 Ici tu conserves exactement ton script d’origine,
-   et dans la fonction loadGame(index),
-   ajoute simplement : updateScoreLine();
-*/
+function buildMoves(gameText){
+  const body=gameText.replace(/^\s*\[[^\]]+\]\s*$/gmi,'')
+                     .replace(/\{[^}]*\}/g,'')
+                     .replace(/\b(1-0|0-1|1\/2-1\/2|\*)\b/g,'');
+  const tokens=body.match(/\d+\.\s*\.{0,2}\s*[^ ]+/g)||[];
+  return tokens;
+}
 
-/* Pour ne pas recopier 1000 lignes ici, 
-   garde ton script existant tel quel
-   et ajoute updateScoreLine() dans loadGame() */
+/* ---------- Basic Board ---------- */
+const board=document.getElementById('board');
+function renderBoard(){
+  board.innerHTML='';
+  for(let r=0;r<10;r++){
+    for(let c=0;c<10;c++){
+      const sq=document.createElement('div');
+      const dark=(r+c)%2===1;
+      sq.className='sq '+(dark?'dark':'light');
+      if(dark){
+        const n=r*5+Math.floor(c/2)+1;
+        const num=document.createElement('div');
+        num.className='num';
+        num.textContent=n;
+        sq.appendChild(num);
+      }
+      board.appendChild(sq);
+    }
+  }
+}
 
+/* ---------- Load ---------- */
+async function init(){
+  renderBoard();
+  const params=new URLSearchParams(location.search);
+  const url=params.get('pdn');
+  if(!url){document.getElementById('msg').textContent="Ajouter ?pdn=URL";return;}
+  const text=await fetch(url).then(r=>r.text());
+  games=splitGames(text);
+  const sel=document.getElementById('gameSel');
+  sel.innerHTML='';
+  games.forEach((g,i)=>{
+    const opt=document.createElement('option');
+    opt.value=i;
+    opt.textContent=labelGame(i,g);
+    sel.appendChild(opt);
+  });
+  sel.addEventListener('change',e=>{
+    currentGameIndex=parseInt(e.target.value);
+    updateScoreLine();
+  });
+  currentGameIndex=0;
+  updateScoreLine();
+}
+
+init();
 </script>
 </body>
 </html>
