@@ -899,8 +899,26 @@
     rebuildTo(plyIndex-1);
   }
 
-  function goFirst(){ stop(); rebuildTo(0); }
-  function goLast(){ stop(); rebuildTo(activeLine.length); }
+function goFirst(){
+  stop();
+
+  // ✅ retour au début = retour ligne principale
+  clearDecisions();
+  activeLine = buildActiveLine();
+
+  rebuildTo(0);
+}
+
+function goLast(){
+  stop();
+
+  // (option recommandé) ✅ aller à la fin = fin de la principale
+  clearDecisions();
+  activeLine = buildActiveLine();
+
+  rebuildTo(activeLine.length);
+}
+
 
   firstBtn.addEventListener('click', goFirst);
   lastBtn.addEventListener('click', goLast);
@@ -987,7 +1005,7 @@
 
       if (mainNode && (mainNode.parentId === bpId || bpId === ROOT)){
         const mainSecondId = (plyIndex + 1 < activeLine.length) ? activeLine[plyIndex + 1] : null;
-        options.push({ label:'Principale', choice:0, firstId:mainFirstId, secondId:mainSecondId });
+        options.push({ label:'Variante 1', choice:0, firstId:mainFirstId, secondId:mainSecondId });
       }
     }
 
@@ -996,7 +1014,7 @@
     childSeqs.forEach((seq, idx)=>{
       if (!seq || !seq.length) return;
       options.push({
-        label: `Variante ${idx + 1}`,
+        label: `Variante ${idx + 2}`,
         choice: idx + 1,      // 1..n (=> children[choice-1])
         firstId: seq[0],
         secondId: (seq.length > 1) ? seq[1] : null
@@ -1218,3 +1236,4 @@
 </script>
 </body>
 </html>
+
