@@ -694,79 +694,7 @@
   const historyStack=[];
   function clearDecisions(){ decisions.clear(); historyStack.length=0; }
 
-function buildActiveLine(){
-  const line = [];
 
-  function walkFrom(nodeId){
-    while (nodeId){
-
-      line.push(nodeId);
-
-      const node = nodeStore.get(nodeId);
-
-      // 1) Si une décision existe sur ce noeud → suivre la variante choisie
-      if (node.children && node.children.length && decisions.has(nodeId)){
-        const choice = decisions.get(nodeId);
-        const seq = node.children[choice - 1];
-        if (seq && seq.length){
-          nodeId = seq[0];
-          continue;
-        }
-      }
-
-      // 2) Sinon suivre la suite normale (nextIds[0])
-      if (node.nextIds && node.nextIds.length){
-        nodeId = node.nextIds[0];
-      } else {
-        break;
-      }
-    }
-  }
-
-  const root = nodeStore.get(ROOT);
-
-  if (root.children && root.children.length){
-    walkFrom(root.children[0][0]); // début de la principale
-  }
-
-  return line;
-}
-
-
-  // ============================================================
-  //  UI
-  // ============================================================
-  const firstBtn=document.getElementById('first');
-  const prevBtn=document.getElementById('prev');
-  const playBtn=document.getElementById('play');
-  const nextBtn=document.getElementById('next');
-  const lastBtn=document.getElementById('last');
-  const backBranchBtn=document.getElementById('backBranch');
-  const backMainBtn=document.getElementById('backMain');
-
-  const info=document.getElementById('info');
-  const msg=document.getElementById('msg');
-  const gameSel=document.getElementById('gameSel');
-  const commentMeta=document.getElementById('commentMeta');
-  const commentBox=document.getElementById('commentBox');
-  const varList=document.getElementById('varList');
-  const crumb=document.getElementById('crumb');
-  const scoreEl=document.getElementById('score'); /* ✅ score */
-
-  let timer=null;
-  let allGames=[];
-  let currentGameIndex=1;
-
-  let startSide='w';
-  let startPiecesMap=null;
-
-  let activeLine=[];
-  let plyIndex=0;
-
-  function stop(){
-    if (timer){ clearInterval(timer); timer=null; }
-    playBtn.textContent='▶︎';
-  }
   function showError(t){ msg.textContent=t||''; }
 
   function niceSide(s){ return s==='w'?'Blancs':'Noirs'; }
@@ -780,6 +708,66 @@ function buildActiveLine(){
     return a;
   }
 
+function buildActiveLine(){
+  const line = [];
+  const visited = new Set();
+
+  // pile de "retours" : quand on entre dans une variante, on empile la suite principale
+  const stack = [];
+
+  // 1) point de départ = 1er nœud de la séquence ROOT choisie
+  const root = nodeStore.get(ROOT);
+  if (!root || !root.children || !root.children.length) return line;
+
+  const rootChoice = decisions.has(ROOT) ? decisions.get(ROOT) : 0;
+  const startSeq = root.children[rootChoice] || root.children[0] || [];
+  let cur = startSeq.length ? startSeq[0] : null;
+
+  while (cur){
+    if (visited.has(cur)) break;       // sécurité anti-boucle
+    visited.add(cur);
+
+    line.push(cur);
+
+    const node = nodeStore.get(cur);
+    if (!node) break;
+
+    // 2) Si une variante est choisie sur ce nœud :
+    //    - on mémorise la suite normale (nextIds[0])
+    //    - on saute dans la séquence de variante (children[choice-1][0])
+    const choice = decisions.has(cur) ? decisions.get(cur) : 0;
+
+    if (choice > 0 && node.children && node.children.length){
+      const seq = node.children[choice - 1];
+      if (seq && seq.length){
+        const normalNext = (node.nextIds && node.nextIds.length) ? node.nextIds[0] : null;
+        stack.push(normalNext);
+        cur = seq[0];
+        continue;
+      }
+    }
+
+    // 3) Sinon : avancer normalement
+    if (node.nextIds && node.nextIds.length){
+      cur = node.nextIds[0];
+      continue;
+    }
+
+    // 4) Fin de branche : revenir à la suite normale empilée (si existe)
+    if (stack.length){
+      cur = stack.pop();
+      continue;
+    }
+
+    // 5) Sinon, terminé
+    break;
+  }
+
+  return line;
+}
+
+
+  
   /* ✅ Score affiché dans sa zone dédiée */
   function updateScoreLine(){
     const gameText=allGames[currentGameIndex-1]||'';
@@ -1209,6 +1197,7 @@ function renderCommentAndVariants(){
 </script>
 </body>
 </html>
+
 
 
 
