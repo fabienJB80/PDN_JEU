@@ -707,7 +707,7 @@ function buildActiveLine(){
       // 1) Si une décision existe sur ce noeud → suivre la variante choisie
       if (node.children && node.children.length && decisions.has(nodeId)){
         const choice = decisions.get(nodeId);
-        const seq = node.children[choice];
+        const seq = node.children[choice - 1];
         if (seq && seq.length){
           nodeId = seq[0];
           continue;
@@ -1209,6 +1209,7 @@ function renderCommentAndVariants(){
 </script>
 </body>
 </html>
+
 
 
 
