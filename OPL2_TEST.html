@@ -1005,7 +1005,7 @@ function goLast(){
 
       if (mainNode && (mainNode.parentId === bpId || bpId === ROOT)){
         const mainSecondId = (plyIndex + 1 < activeLine.length) ? activeLine[plyIndex + 1] : null;
-        options.push({ label:'Variante 1', choice:0, firstId:mainFirstId, secondId:mainSecondId });
+        options.push({ label:'Choix du joueur', choice:0, firstId:mainFirstId, secondId:mainSecondId });
       }
     }
 
@@ -1236,4 +1236,5 @@ function goLast(){
 </script>
 </body>
 </html>
+
 
