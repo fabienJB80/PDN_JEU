@@ -918,7 +918,12 @@ function renderCommentAndVariants(){
     ? `Choix: ${historyStack.length}`
     : 'Ligne principale';
 
+  if (crumb){
   crumb.innerHTML =
+    `<span class="badge">${branchInfo}</span>` +
+    `<span style="margin-left:6px;">Point : ${bpLabel}</span>`;
+}
+
     `<span class="badge">${branchInfo}</span>` +
     `<span style="margin-left:6px;">Point : ${bpLabel}</span>`;
 
@@ -1199,6 +1204,7 @@ function renderCommentAndVariants(){
 </script>
 </body>
 </html>
+
 
 
 
