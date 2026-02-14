@@ -697,35 +697,40 @@
 function buildActiveLine(){
   const line = [];
 
-  function walkSeq(seq){
-    for (const nid of seq){
-      line.push(nid);
+  function walkFrom(nodeId){
+    while (nodeId){
 
-      const n = nodeStore.get(nid);
-      const choice = decisions.has(nid) ? decisions.get(nid) : 0;
+      line.push(nodeId);
 
-      // Si une variante est choisie sur ce nœud, on suit cette branche
-      if (n && n.children && n.children.length && choice > 0 && n.children[choice - 1]){
-        walkSeq(n.children[choice - 1]);
-        return;
+      const node = nodeStore.get(nodeId);
+
+      // 1) Si une décision existe sur ce noeud → suivre la variante choisie
+      if (node.children && node.children.length && decisions.has(nodeId)){
+        const choice = decisions.get(nodeId);
+        const seq = node.children[choice];
+        if (seq && seq.length){
+          nodeId = seq[0];
+          continue;
+        }
+      }
+
+      // 2) Sinon suivre la suite normale (nextIds[0])
+      if (node.nextIds && node.nextIds.length){
+        nodeId = node.nextIds[0];
+      } else {
+        break;
       }
     }
   }
 
   const root = nodeStore.get(ROOT);
 
-  // 0 = principale (children[0])
-  // 1 = children[1], etc.
-  const rootChoice = decisions.has(ROOT) ? decisions.get(ROOT) : 0;
+  if (root.children && root.children.length){
+    walkFrom(root.children[0][0]); // début de la principale
+  }
 
-  const main = (root && root.children && root.children.length)
-    ? (root.children[rootChoice] || root.children[0] || [])
-    : [];
-
-  walkSeq(main);
   return line;
 }
-
 
 
   // ============================================================
@@ -1204,6 +1209,7 @@ function renderCommentAndVariants(){
 </script>
 </body>
 </html>
+
 
 
 
