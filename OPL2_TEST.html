@@ -1005,7 +1005,7 @@ function goLast(){
 
       if (mainNode && (mainNode.parentId === bpId || bpId === ROOT)){
         const mainSecondId = (plyIndex + 1 < activeLine.length) ? activeLine[plyIndex + 1] : null;
-        options.push({ label:'Choix du joueur', choice:0, firstId:mainFirstId, secondId:mainSecondId });
+        options.push({ label:'Choix 1', choice:0, firstId:mainFirstId, secondId:mainSecondId });
       }
     }
 
@@ -1014,7 +1014,7 @@ function goLast(){
     childSeqs.forEach((seq, idx)=>{
       if (!seq || !seq.length) return;
       options.push({
-        label: `Variante ${idx + 2}`,
+        label: `Choix ${idx + 2}`,
         choice: idx + 1,      // 1..n (=> children[choice-1])
         firstId: seq[0],
         secondId: (seq.length > 1) ? seq[1] : null
@@ -1236,5 +1236,6 @@ function goLast(){
 </script>
 </body>
 </html>
+
 
 
