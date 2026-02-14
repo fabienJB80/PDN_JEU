@@ -694,26 +694,38 @@
   const historyStack=[];
   function clearDecisions(){ decisions.clear(); historyStack.length=0; }
 
-  function buildActiveLine(){
-    const line=[];
-    function walkSeq(seq){
-      for (const nid of seq){
-        line.push(nid);
+function buildActiveLine(){
+  const line = [];
 
-        const n=nodeStore.get(nid);
-        const choice=decisions.has(nid)?decisions.get(nid):0;
+  function walkSeq(seq){
+    for (const nid of seq){
+      line.push(nid);
 
-        if (n.children && n.children.length && choice>0 && n.children[choice-1]){
-          walkSeq(n.children[choice-1]);
-          return;
-        }
+      const n = nodeStore.get(nid);
+      const choice = decisions.has(nid) ? decisions.get(nid) : 0;
+
+      // Si un choix de variante est posé sur CE nœud, on suit la branche choisie
+      if (n && n.children && n.children.length && choice > 0 && n.children[choice - 1]){
+        walkSeq(n.children[choice - 1]);
+        return; // une fois dans une branche, on n'enchaîne pas les autres siblings
       }
     }
-    const root=nodeStore.get(ROOT);
-    const main=(root.children && root.children[0])?root.children[0]:[];
-    walkSeq(main);
-    return line;
   }
+
+  const root = nodeStore.get(ROOT);
+
+  // ✅ Prend en compte un choix au ROOT :
+  // 0 => principale (children[0]), 1 => children[1], etc.
+  const rootChoice = decisions.has(ROOT) ? decisions.get(ROOT) : 0;
+
+  const main = (root && root.children && root.children.length)
+    ? (root.children[rootChoice] || root.children[0] || [])
+    : [];
+
+  walkSeq(main);
+  return line;
+}
+
 
   // ============================================================
   //  UI
@@ -874,22 +886,22 @@ function renderCommentAndVariants(){
   varList.innerHTML = '';
 
   let bpId = ROOT;
-  let bpLabel = 'Départ';
 
-  if (plyIndex === 0){
-    bpId = ROOT;
-    bpLabel = 'Départ';
-  } else if (plyIndex < activeLine.length){
-    const nextId = activeLine[plyIndex];
-    bpId = nodeStore.get(nextId)?.parentId ?? ROOT;
-    if (bpId === ROOT) bpLabel = 'Départ';
-    else bpLabel = nodeStore.get(bpId)?.move?.raw || 'Position';
-  } else {
-    // fin de ligne : on reste sur le dernier nœud
-    bpId = activeLine[activeLine.length - 1] ?? ROOT;
-    if (bpId === ROOT) bpLabel = 'Départ';
-    else bpLabel = nodeStore.get(bpId)?.move?.raw || 'Position';
-  }
+if (plyIndex === 0) {
+  bpId = ROOT;
+} else if (plyIndex < activeLine.length) {
+  const nextId = activeLine[plyIndex];
+  const cand1 = nodeStore.get(nextId)?.parentId ?? ROOT;
+  const cand2 = nextId;
+  const cand3 = activeLine[plyIndex-1];
+
+  // choisir le candidat qui porte réellement des children
+  const hasChild = (id)=> (nodeStore.get(id)?.children && nodeStore.get(id).children.length);
+  bpId = hasChild(cand1) ? cand1 : (hasChild(cand2) ? cand2 : (hasChild(cand3) ? cand3 : cand1));
+} else {
+  bpId = activeLine[activeLine.length - 1] ?? ROOT;
+}
+
 
   const bp = nodeStore.get(bpId);
   const variants = (bp && bp.children) ? bp.children : [];
@@ -1172,4 +1184,5 @@ function renderCommentAndVariants(){
 </script>
 </body>
 </html>
+
 
