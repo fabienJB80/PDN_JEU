@@ -704,18 +704,18 @@ function buildActiveLine(){
       const n = nodeStore.get(nid);
       const choice = decisions.has(nid) ? decisions.get(nid) : 0;
 
-      // Si un choix de variante est posé sur CE nœud, on suit la branche choisie
+      // Si une variante est choisie sur ce nœud, on suit cette branche
       if (n && n.children && n.children.length && choice > 0 && n.children[choice - 1]){
         walkSeq(n.children[choice - 1]);
-        return; // une fois dans une branche, on n'enchaîne pas les autres siblings
+        return;
       }
     }
   }
 
   const root = nodeStore.get(ROOT);
 
-  // ✅ Prend en compte un choix au ROOT :
-  // 0 => principale (children[0]), 1 => children[1], etc.
+  // 0 = principale (children[0])
+  // 1 = children[1], etc.
   const rootChoice = decisions.has(ROOT) ? decisions.get(ROOT) : 0;
 
   const main = (root && root.children && root.children.length)
@@ -725,6 +725,7 @@ function buildActiveLine(){
   walkSeq(main);
   return line;
 }
+
 
 
   // ============================================================
@@ -869,155 +870,164 @@ function buildActiveLine(){
     activeLine=buildActiveLine();
     rebuildTo(Math.min(plyIndex, activeLine.length));
   });
-
 function renderCommentAndVariants(){
-  // ============================================================
-  // 0) Helpers
-  // ============================================================
-  const opp = (s)=> (s==='w'?'b':'w');
-  const sideToMove = (ply)=> (ply % 2 === 0 ? startSide : opp(startSide));
 
-  // ============================================================
-  // 1) Déterminer le POINT DE BRANCHEMENT (= position affichée)
-  //    - On raisonne "avant exécution" : la position courante est celle
-  //      correspondant à plyIndex (nombre de demi-coups déjà joués)
-  //    - Les choix (principale + variantes) sont attachés au parent du prochain coup
-  // ============================================================
+  const opp = s => (s === 'w' ? 'b' : 'w');
+  const sideToMove = (ply) => (ply % 2 === 0 ? startSide : opp(startSide));
+
   varList.innerHTML = '';
+
+  // =====================================================
+  // 1) Déterminer le vrai point de branchement
+  // =====================================================
 
   let bpId = ROOT;
 
-if (plyIndex === 0) {
-  bpId = ROOT;
-} else if (plyIndex < activeLine.length) {
-  const nextId = activeLine[plyIndex];
-  const cand1 = nodeStore.get(nextId)?.parentId ?? ROOT;
-  const cand2 = nextId;
-  const cand3 = activeLine[plyIndex-1];
+  if (plyIndex === 0){
+    bpId = ROOT;
+  } 
+  else if (plyIndex < activeLine.length){
+    const nextId = activeLine[plyIndex];
 
-  // choisir le candidat qui porte réellement des children
-  const hasChild = (id)=> (nodeStore.get(id)?.children && nodeStore.get(id).children.length);
-  bpId = hasChild(cand1) ? cand1 : (hasChild(cand2) ? cand2 : (hasChild(cand3) ? cand3 : cand1));
-} else {
-  bpId = activeLine[activeLine.length - 1] ?? ROOT;
-}
+    const cand1 = nodeStore.get(nextId)?.parentId ?? ROOT;
+    const cand2 = nextId;
+    const cand3 = activeLine[plyIndex - 1];
 
+    const hasChild = (id) => {
+      const n = nodeStore.get(id);
+      return n && n.children && n.children.length;
+    };
+
+    bpId = hasChild(cand1) ? cand1
+         : hasChild(cand2) ? cand2
+         : hasChild(cand3) ? cand3
+         : cand1;
+  }
+  else{
+    bpId = activeLine[activeLine.length - 1] ?? ROOT;
+  }
 
   const bp = nodeStore.get(bpId);
   const variants = (bp && bp.children) ? bp.children : [];
 
-  const branchInfo = historyStack.length ? `Choix: ${historyStack.length}` : 'Ligne principale';
-  crumb.innerHTML = `<span class="badge">${branchInfo}</span> <span style="margin-left:6px;">Point : ${bpLabel}</span>`;
+  const bpLabel = (bpId === ROOT)
+    ? 'Départ'
+    : (nodeStore.get(bpId)?.move?.raw || 'Position');
 
-  // ============================================================
-  // 2) Construire la liste d’OPTIONS au point de branchement
-  //    - Option 0 : Principale (aucune décision, on suit la ligne active)
-  //    - Options 1..n : variantes (bp.children[i-1])
-  //    Chaque option affiche 2 demi-coups : (coup au trait) + (réponse)
-  // ============================================================
+  const branchInfo = historyStack.length
+    ? `Choix: ${historyStack.length}`
+    : 'Ligne principale';
+
+  crumb.innerHTML =
+    `<span class="badge">${branchInfo}</span>` +
+    `<span style="margin-left:6px;">Point : ${bpLabel}</span>`;
+
+  // =====================================================
+  // 2) Construire Principale + Variantes
+  // =====================================================
+
   const options = [];
 
-  // 2.a) Principale : premier coup = activeLine[plyIndex] SI son parent == bpId
+  // Principale
   if (plyIndex < activeLine.length){
     const mainFirstId = activeLine[plyIndex];
-    const mainFirstNode = nodeStore.get(mainFirstId);
+    const mainNode = nodeStore.get(mainFirstId);
 
-    if (mainFirstNode && (mainFirstNode.parentId === bpId || bpId === ROOT)){
-      const mainSecondId = (plyIndex + 1 < activeLine.length) ? activeLine[plyIndex + 1] : null;
+    if (mainNode && (mainNode.parentId === bpId || bpId === ROOT)){
+      const mainSecondId = (plyIndex + 1 < activeLine.length)
+        ? activeLine[plyIndex + 1]
+        : null;
+
       options.push({
         label: 'Principale',
-        choice: 0,              // 0 => pas de décision (défaut)
+        choice: 0,
         firstId: mainFirstId,
         secondId: mainSecondId
       });
     }
   }
 
-  // 2.b) Variantes : children attachées à bpId
-  // (ROOT : on ignore children[0] qui est la principale globale)
-  const childSeqs = (bpId === ROOT) ? variants.slice(1) : variants;
+  // Variantes
+  const childSeqs = (bpId === ROOT)
+    ? variants.slice(1)
+    : variants;
 
   childSeqs.forEach((seq, idx)=>{
     if (!seq || !seq.length) return;
+
     options.push({
       label: `Variante ${idx + 1}`,
-      choice: idx + 1,          // 1..n (compatible buildActiveLine: choice-1)
+      choice: idx + 1,
       firstId: seq[0],
       secondId: (seq.length > 1) ? seq[1] : null
     });
   });
 
-  // ============================================================
-  // 3) Commentaire façon Lidraughts :
-  //    - On affiche le "trait", puis le coup candidat (de l’option active),
-  //      puis le commentaire/annotation attaché à ce coup (même s’il est écrit
-  //      après le coup dans le PDN)
-  // ============================================================
+  // =====================================================
+  // 3) Commentaire (avant exécution)
+  // =====================================================
+
   const stm = sideToMove(plyIndex);
   const stmTxt = niceSide(stm);
 
-  // choix actif au point bpId : 0 par défaut
   const chosen = decisions.has(bpId) ? decisions.get(bpId) : 0;
 
-  // retrouver l’option correspondante
-  let activeOpt = options.find(o => o.choice === chosen) || options.find(o => o.choice === 0) || options[0] || null;
+  const activeOpt =
+    options.find(o => o.choice === chosen) ||
+    options.find(o => o.choice === 0) ||
+    options[0] ||
+    null;
 
   if (!activeOpt){
-    commentMeta.textContent = `${(plyIndex===0?'Départ — ':'')}Trait aux ${stmTxt}`;
-    commentBox.textContent  = '—';
+    commentMeta.textContent = `Trait aux ${stmTxt}`;
+    commentBox.textContent = '—';
   } else {
-    const n1 = nodeStore.get(activeOpt.firstId);
-    const mv1 = n1?.move;
-    const cm1 = (n1?.comment || '').trim();
-    const ann = mv1?.annot || '';
-    const annTxt = ann ? ` — ${annotLabel(ann)}` : '';
-    const coupTxt = mv1?.raw ? mv1.raw : '—';
+    const node = nodeStore.get(activeOpt.firstId);
+    const mv = node?.move;
+    const comment = (node?.comment || '').trim();
+    const annot = mv?.annot || '';
+    const annotTxt = annot ? ` — ${annotLabel(annot)}` : '';
 
-    // Trait + coup candidat + annotation
-    commentMeta.textContent = `Trait aux ${stmTxt} — coup : ${coupTxt}${annTxt}`;
-    commentBox.textContent  = cm1 ? cm1 : '—';
+    commentMeta.textContent =
+      `Trait aux ${stmTxt} — coup : ${mv?.raw || ''}${annotTxt}`;
+
+    commentBox.textContent = comment || '—';
   }
 
-  // ============================================================
-  // 4) Afficher la liste des options (Principale + Variantes) en boutons actifs
-  // ============================================================
+  // =====================================================
+  // 4) Affichage des boutons
+  // =====================================================
+
   if (!options.length){
     const div = document.createElement('div');
     div.style.fontSize = '13px';
-    div.style.color = 'var(--muted)';
-    div.style.opacity = '.9';
+    div.style.opacity = '.8';
     div.textContent = 'Aucune variante à cet endroit.';
     varList.appendChild(div);
     return;
   }
 
-  options.forEach((opt)=>{
+  options.forEach(opt=>{
+
     const n1 = nodeStore.get(opt.firstId);
     const m1 = n1?.move;
     const ann1 = m1?.annot || '';
-    const s1 = m1?.side ? niceSide(m1.side) : '';
-    const t1 = m1?.raw ? m1.raw : '—';
-    const a1 = ann1 ? ann1 : '';
 
     const n2 = opt.secondId ? nodeStore.get(opt.secondId) : null;
     const m2 = n2?.move;
-    const s2 = m2?.side ? niceSide(m2.side) : '';
-    const t2 = m2?.raw ? m2.raw : '';
 
-    const isActive = (chosen === opt.choice) || (!decisions.has(bpId) && opt.choice === 0);
+    const chosenNow = decisions.has(bpId) ? decisions.get(bpId) : 0;
+    const isActive = (chosenNow === opt.choice) ||
+                     (!decisions.has(bpId) && opt.choice === 0);
 
     const btn = document.createElement('button');
     btn.className = 'varBtn';
     btn.type = 'button';
 
-    // Ligne 1 : label + coup au trait
-    // Ligne 2 : réponse (si dispo)
-    const line1 = `${isActive ? '✓' : '▶'} ${opt.label} : ${t1}${a1 ? a1 : ''}`;
-    const line2 = t2 ? `${s2 ? (s2 + ' ') : ''}${t2}` : '';
+    const line1 = `${isActive ? '✓' : '▶'} ${opt.label} : ${m1?.raw || ''}${ann1 ? ann1 : ''}`;
+    const line2 = m2 ? ` • ${m2.raw}` : '';
 
-    btn.innerHTML =
-      `${line1}` +
-      `<small>${(s1 ? (s1 + ' ') : '')}${t1}${a1 ? (' ' + a1) : ''}${line2 ? '  •  ' + line2 : ''}</small>`;
+    btn.innerHTML = `${line1}<small>${line2}</small>`;
 
     if (isActive){
       btn.style.outline = '2px solid rgba(0,0,0,.18)';
@@ -1027,11 +1037,14 @@ if (plyIndex === 0) {
     btn.addEventListener('click', ()=>{
       stop();
 
-      const prevChoice = decisions.has(bpId) ? decisions.get(bpId) : null;
+      const prevChoice = decisions.has(bpId)
+        ? decisions.get(bpId)
+        : null;
 
-      // appliquer le choix : 0 => on revient à la principale (on supprime la décision)
-      if (opt.choice === 0) decisions.delete(bpId);
-      else decisions.set(bpId, opt.choice);
+      if (opt.choice === 0)
+        decisions.delete(bpId);
+      else
+        decisions.set(bpId, opt.choice);
 
       historyStack.push({
         branchPointId: bpId,
@@ -1040,13 +1053,15 @@ if (plyIndex === 0) {
       });
 
       activeLine = buildActiveLine();
-      // On reste au point de branchement (avant exécution)
+
+      // rester au point de branchement
       rebuildTo(Math.min(plyIndex, activeLine.length));
     });
 
     varList.appendChild(btn);
   });
 }
+
 
   function fillSelector(){
     gameSel.innerHTML='';
@@ -1184,5 +1199,6 @@ if (plyIndex === 0) {
 </script>
 </body>
 </html>
+
 
 
