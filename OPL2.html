@@ -242,7 +242,6 @@
       </div>
     </div>
 
-    <!-- ✅ SCORE DÉDIÉ -->
     <div id="score" class="score"></div>
 
     <div id="board" class="board" aria-label="Damier"></div>
@@ -281,6 +280,42 @@
 
 <script>
 (() => {
+
+  // ============================================================
+  //  UI (INDISPENSABLE : sinon SR reste "En attente…")
+  // ============================================================
+  const firstBtn=document.getElementById('first');
+  const prevBtn=document.getElementById('prev');
+  const playBtn=document.getElementById('play');
+  const nextBtn=document.getElementById('next');
+  const lastBtn=document.getElementById('last');
+  const backBranchBtn=document.getElementById('backBranch');
+  const backMainBtn=document.getElementById('backMain');
+
+  const info=document.getElementById('info');
+  const msg=document.getElementById('msg');
+  const gameSel=document.getElementById('gameSel');
+  const commentMeta=document.getElementById('commentMeta');
+  const commentBox=document.getElementById('commentBox');
+  const varList=document.getElementById('varList');
+  const crumb=document.getElementById('crumb');
+  const scoreEl=document.getElementById('score');
+
+  let timer=null;
+  let allGames=[];
+  let currentGameIndex=1;
+
+  let startSide='w';
+  let startPiecesMap=null;
+
+  let activeLine=[];
+  let plyIndex=0;
+
+  function stop(){
+    if (timer){ clearInterval(timer); timer=null; }
+    playBtn.textContent='▶︎';
+  }
+
   // ============================================================
   //  Helpers cases
   // ============================================================
@@ -557,7 +592,7 @@
 
   function resetTree(){
     nodeStore=new Map();
-    nodeStore.set(ROOT,{id:ROOT, move:null, comment:'', children:[], parentId:null});
+    nodeStore.set(ROOT,{id:ROOT, move:null, comment:'', children:[], parentId:null, nextIds:[]});
   }
 
   function stripMoveNumbers(s){ return s.replace(/\b\d+\s*\.(\.\.)?/g,' '); }
@@ -605,7 +640,7 @@
 
   function newNode(parentId, moveObj){
     const id='N'+Math.random().toString(36).slice(2,10);
-    nodeStore.set(id,{id, move:moveObj, comment:'', children:[], parentId});
+    nodeStore.set(id,{id, move:moveObj, comment:'', children:[], parentId, nextIds:[]});
     return id;
   }
 
@@ -677,13 +712,50 @@
     return seq;
   }
 
+  // ✅ Lien "nextIds" partout (principale + variantes + sous-variantes)
+  function linkAllNext(){
+    const seenSeq = new Set();
+
+    function linkSeq(seq){
+      if (!seq || !seq.length) return;
+      // éviter de relinker la même séquence si référencée plusieurs fois
+      const key = seq.join(',');
+      if (seenSeq.has(key)) return;
+      seenSeq.add(key);
+
+      for (let i=0;i<seq.length;i++){
+        const id=seq[i];
+        const n=nodeStore.get(id);
+        if (!n) continue;
+        n.nextIds = (i+1<seq.length) ? [seq[i+1]] : [];
+      }
+      for (const id of seq){
+        const n=nodeStore.get(id);
+        if (n && n.children && n.children.length){
+          for (const childSeq of n.children) linkSeq(childSeq);
+        }
+      }
+    }
+
+    const root=nodeStore.get(ROOT);
+    if (root && root.children && root.children.length){
+      for (const seq of root.children) linkSeq(seq);
+    }
+  }
+
   function buildTreeFromGame(gameText, startSide){
     resetTree();
     const body=extractMovesSectionKeepingVars(gameText);
     const tokens=lex(body);
     const idxRef={i:0};
     const mainSeq=parseSequence(tokens, idxRef, startSide, ROOT);
+
+    // root.children[0] = principale
     nodeStore.get(ROOT).children=[mainSeq, ...nodeStore.get(ROOT).children];
+
+    // ✅ indispensable pour buildActiveLine() + navigation
+    linkAllNext();
+
     return mainSeq;
   }
 
@@ -694,61 +766,6 @@
   const historyStack=[];
   function clearDecisions(){ decisions.clear(); historyStack.length=0; }
 
-  function buildActiveLine(){
-    const line=[];
-    function walkSeq(seq){
-      for (const nid of seq){
-        line.push(nid);
-
-        const n=nodeStore.get(nid);
-        const choice=decisions.has(nid)?decisions.get(nid):0;
-
-        if (n.children && n.children.length && choice>0 && n.children[choice-1]){
-          walkSeq(n.children[choice-1]);
-          return;
-        }
-      }
-    }
-    const root=nodeStore.get(ROOT);
-    const main=(root.children && root.children[0])?root.children[0]:[];
-    walkSeq(main);
-    return line;
-  }
-
-  // ============================================================
-  //  UI
-  // ============================================================
-  const firstBtn=document.getElementById('first');
-  const prevBtn=document.getElementById('prev');
-  const playBtn=document.getElementById('play');
-  const nextBtn=document.getElementById('next');
-  const lastBtn=document.getElementById('last');
-  const backBranchBtn=document.getElementById('backBranch');
-  const backMainBtn=document.getElementById('backMain');
-
-  const info=document.getElementById('info');
-  const msg=document.getElementById('msg');
-  const gameSel=document.getElementById('gameSel');
-  const commentMeta=document.getElementById('commentMeta');
-  const commentBox=document.getElementById('commentBox');
-  const varList=document.getElementById('varList');
-  const crumb=document.getElementById('crumb');
-  const scoreEl=document.getElementById('score'); /* ✅ score */
-
-  let timer=null;
-  let allGames=[];
-  let currentGameIndex=1;
-
-  let startSide='w';
-  let startPiecesMap=null;
-
-  let activeLine=[];
-  let plyIndex=0;
-
-  function stop(){
-    if (timer){ clearInterval(timer); timer=null; }
-    playBtn.textContent='▶︎';
-  }
   function showError(t){ msg.textContent=t||''; }
 
   function niceSide(s){ return s==='w'?'Blancs':'Noirs'; }
@@ -762,7 +779,63 @@
     return a;
   }
 
-  /* ✅ Score affiché dans sa zone dédiée */
+  // ============================================================
+  //  buildActiveLine (robuste + conserve les autres nœuds à variantes)
+  // ============================================================
+  function buildActiveLine(){
+    const line = [];
+    const visited = new Set();
+    const stack = [];
+
+    const root = nodeStore.get(ROOT);
+    if (!root || !root.children || !root.children.length) return line;
+
+    // ROOT : 0 = principale (children[0]), 1 = var1 (children[1]) ...
+    const rootChoice = decisions.has(ROOT) ? decisions.get(ROOT) : 0;
+    const startSeq = root.children[rootChoice] || root.children[0] || [];
+    let cur = startSeq.length ? startSeq[0] : null;
+
+    while (cur){
+      if (visited.has(cur)) break;
+      visited.add(cur);
+
+      line.push(cur);
+
+      const node = nodeStore.get(cur);
+      if (!node) break;
+
+      const choice = decisions.has(cur) ? decisions.get(cur) : 0;
+
+      // Variante choisie sur ce nœud (1..n => children[0..n-1])
+      if (choice > 0 && node.children && node.children.length){
+        const seq = node.children[choice - 1];
+        if (seq && seq.length){
+          const normalNext = (node.nextIds && node.nextIds.length) ? node.nextIds[0] : null;
+          stack.push(normalNext);
+          cur = seq[0];
+          continue;
+        }
+      }
+
+      // suite normale
+      if (node.nextIds && node.nextIds.length){
+        cur = node.nextIds[0];
+        continue;
+      }
+
+      // fin de branche : revenir à la suite principale empilée
+      if (stack.length){
+        cur = stack.pop();
+        continue;
+      }
+
+      break;
+    }
+
+    return line;
+  }
+
+  /* Score affiché dans sa zone dédiée */
   function updateScoreLine(){
     const gameText=allGames[currentGameIndex-1]||'';
     const r=(getTag(gameText,'Result')||'').trim();
@@ -826,8 +899,26 @@
     rebuildTo(plyIndex-1);
   }
 
-  function goFirst(){ stop(); rebuildTo(0); }
-  function goLast(){ stop(); rebuildTo(activeLine.length); }
+function goFirst(){
+  stop();
+
+  // ✅ retour au début = retour ligne principale
+  clearDecisions();
+  activeLine = buildActiveLine();
+
+  rebuildTo(0);
+}
+
+function goLast(){
+  stop();
+
+  // (option recommandé) ✅ aller à la fin = fin de la principale
+  clearDecisions();
+  activeLine = buildActiveLine();
+
+  rebuildTo(activeLine.length);
+}
+
 
   firstBtn.addEventListener('click', goFirst);
   lastBtn.addEventListener('click', goLast);
@@ -858,76 +949,159 @@
     rebuildTo(Math.min(plyIndex, activeLine.length));
   });
 
+  // ============================================================
+  //  Variantes + commentaires (style Lidraughts)
+  // ============================================================
   function renderCommentAndVariants(){
-    if (plyIndex===0){
-      commentMeta.textContent=`Départ — ${niceSide(startSide)} au trait`;
-      commentBox.textContent='—';
+
+    const opp = s => (s === 'w' ? 'b' : 'w');
+    const sideToMove = (ply) => (ply % 2 === 0 ? startSide : opp(startSide));
+
+    varList.innerHTML = '';
+
+    let bpId = ROOT;
+
+    if (plyIndex === 0){
+      bpId = ROOT;
+    } else if (plyIndex < activeLine.length){
+      const nextId = activeLine[plyIndex];
+
+      const cand1 = nodeStore.get(nextId)?.parentId ?? ROOT;
+      const cand2 = nextId;
+      const cand3 = activeLine[plyIndex - 1];
+
+      const hasChild = (id) => {
+        const n = nodeStore.get(id);
+        return n && n.children && n.children.length;
+      };
+
+      bpId = hasChild(cand1) ? cand1
+           : hasChild(cand2) ? cand2
+           : hasChild(cand3) ? cand3
+           : cand1;
     } else {
-      const nid=activeLine[plyIndex-1];
-      const node=nodeStore.get(nid);
-      const mv=node?.move;
-      const cm=(node?.comment||'').trim();
-      const ann=mv?.annot||'';
-      const annTxt=ann?` — ${annotLabel(ann)}`:'';
-      commentMeta.textContent=`${niceSide(mv.side)} joue : ${mv.raw}${annTxt}`;
-      commentBox.textContent=cm?cm:'—';
+      bpId = activeLine[activeLine.length - 1] ?? ROOT;
     }
 
-    varList.innerHTML='';
-    let bpId=null;
-    let bpLabel='';
-    if (plyIndex===0){
-      bpId=ROOT;
-      bpLabel='Départ';
-    } else {
-      bpId=activeLine[plyIndex-1];
-      bpLabel=nodeStore.get(bpId)?.move?.raw||'Position';
+    const bp = nodeStore.get(bpId);
+    const variants = (bp && bp.children) ? bp.children : [];
+
+    const bpLabel = (bpId === ROOT) ? 'Départ' : (nodeStore.get(bpId)?.move?.raw || 'Position');
+    const branchInfo = historyStack.length ? `Choix: ${historyStack.length}` : 'Ligne principale';
+
+    if (crumb){
+      crumb.innerHTML =
+        `<span class="badge">${branchInfo}</span>` +
+        `<span style="margin-left:6px;">Point : ${bpLabel}</span>`;
     }
 
-    const bp=nodeStore.get(bpId);
-    const vars=(bp && bp.children)?bp.children:[];
+    // Options = Principale + Variantes
+    const options = [];
 
-    const branchInfo=historyStack.length?`Choix: ${historyStack.length}`:'Ligne principale';
-    crumb.innerHTML=`<span class="badge">${branchInfo}</span> <span style="margin-left:6px;">Point : ${bpLabel}</span>`;
+    // Principale = prochain demi-temps dans la ligne active (si attaché au bp)
+    if (plyIndex < activeLine.length){
+      const mainFirstId = activeLine[plyIndex];
+      const mainNode = nodeStore.get(mainFirstId);
 
-    const varSeqs = (bpId===ROOT) ? vars.slice(1) : vars;
+      if (mainNode && (mainNode.parentId === bpId || bpId === ROOT)){
+        const mainSecondId = (plyIndex + 1 < activeLine.length) ? activeLine[plyIndex + 1] : null;
+        options.push({ label:'Choix 1', choice:0, firstId:mainFirstId, secondId:mainSecondId });
+      }
+    }
 
-    if (!varSeqs.length){
-      const div=document.createElement('div');
-      div.style.fontSize='13px';
-      div.style.color='var(--muted)';
-      div.style.opacity='.9';
-      div.textContent='Aucune variante à cet endroit.';
+    // Variantes du bp (ROOT : on ignore children[0] qui est la principale globale)
+    const childSeqs = (bpId === ROOT) ? variants.slice(1) : variants;
+    childSeqs.forEach((seq, idx)=>{
+      if (!seq || !seq.length) return;
+      options.push({
+        label: `Choix ${idx + 2}`,
+        choice: idx + 1,      // 1..n (=> children[choice-1])
+        firstId: seq[0],
+        secondId: (seq.length > 1) ? seq[1] : null
+      });
+    });
+
+    // Commentaire "avant exécution" : on affiche trait + coup candidat + commentaire du coup
+    const stm = sideToMove(plyIndex);
+    const stmTxt = niceSide(stm);
+
+    const chosen = decisions.has(bpId) ? decisions.get(bpId) : 0;
+    const activeOpt =
+      options.find(o => o.choice === chosen) ||
+      options.find(o => o.choice === 0) ||
+      options[0] ||
+      null;
+
+    if (!activeOpt){
+      commentMeta.textContent = `Trait aux ${stmTxt}`;
+      commentBox.textContent = '—';
+    } else {
+      const node = nodeStore.get(activeOpt.firstId);
+      const mv = node?.move;
+      const comment = (node?.comment || '').trim();
+      const annot = mv?.annot || '';
+      const annotTxt = annot ? ` — ${annotLabel(annot)}` : '';
+
+      commentMeta.textContent = `Trait aux ${stmTxt} — coup : ${mv?.raw || ''}${annotTxt}`;
+      commentBox.textContent = comment || '—';
+    }
+
+    // Affichage boutons
+    if (!options.length){
+      const div = document.createElement('div');
+      div.style.fontSize = '13px';
+      div.style.opacity = '.8';
+      div.textContent = 'Aucune variante à cet endroit.';
       varList.appendChild(div);
       return;
     }
 
-    varSeqs.forEach((seq, i)=>{
-      const first = seq && seq.length ? nodeStore.get(seq[0]) : null;
-      const title = first?.move?.raw ? first.move.raw : '(vide)';
-      const side = first?.move?.side ? niceSide(first.move.side) : '';
-      const cm = (first?.comment||'').trim();
-      const ann = first?.move?.annot || '';
-      const annTxt = ann ? ` ${ann}` : '';
+    options.forEach(opt=>{
+      const n1 = nodeStore.get(opt.firstId);
+      const m1 = n1?.move;
+      const ann1 = m1?.annot || '';
 
-      const btn=document.createElement('button');
-      btn.className='varBtn';
-      btn.type='button';
-      btn.innerHTML=`▶ Variante ${i+1} : ${title}${annTxt}<small>${side}${cm?' • '+cm.split('\n')[0].slice(0,120):''}</small>`;
+      const n2 = opt.secondId ? nodeStore.get(opt.secondId) : null;
+      const m2 = n2?.move;
+
+      const chosenNow = decisions.has(bpId) ? decisions.get(bpId) : 0;
+      const isActive = (chosenNow === opt.choice) || (!decisions.has(bpId) && opt.choice === 0);
+
+      const btn = document.createElement('button');
+      btn.className = 'varBtn';
+      btn.type = 'button';
+
+      const line1 = `${isActive ? '✓' : '▶'} ${opt.label} : ${m1?.raw || ''}${ann1 ? ann1 : ''}`;
+      const line2 = m2 ? ` • ${m2.raw}` : '';
+
+      btn.innerHTML = `${line1}<small>${line2}</small>`;
+
+      if (isActive){
+        btn.style.outline = '2px solid rgba(0,0,0,.18)';
+        btn.style.background = '#fff';
+      }
 
       btn.addEventListener('click', ()=>{
         stop();
+
         const prevChoice = decisions.has(bpId) ? decisions.get(bpId) : null;
-        decisions.set(bpId, i+1);
-        historyStack.push({branchPointId:bpId, prevChoice, plyAtChoice:plyIndex});
-        activeLine=buildActiveLine();
-        rebuildTo(Math.min(plyIndex, activeLine.length));
+
+        if (opt.choice === 0) decisions.delete(bpId);
+        else decisions.set(bpId, opt.choice);
+
+        historyStack.push({ branchPointId: bpId, prevChoice, plyAtChoice: plyIndex });
+
+        activeLine = buildActiveLine();
+        rebuildTo(Math.min(plyIndex, activeLine.length)); // rester au branchement
       });
 
       varList.appendChild(btn);
     });
   }
 
+  // ============================================================
+  //  Sélecteur / chargement
+  // ============================================================
   function fillSelector(){
     gameSel.innerHTML='';
     for (let i=0;i<allGames.length;i++){
@@ -938,7 +1112,6 @@
       const opt=document.createElement('option');
       opt.value=String(i+1);
       const labelPlayers=(white||black)?`${white} / ${black}`:'';
-      /* ✅ PAS DE SCORE dans le menu */
       opt.textContent=[`Partie ${i+1}`,labelPlayers,event].filter(Boolean).join(' — ');
       gameSel.appendChild(opt);
     }
@@ -961,7 +1134,7 @@
     fillSelector();
     rebuildTo(plyToJump ?? 0);
 
-    updateScoreLine(); /* ✅ score mis à jour */
+    updateScoreLine();
     showError(activeLine.length ? '' : 'PDN chargé, mais aucun coup détecté.');
   }
 
@@ -1050,7 +1223,6 @@
       const gameIndex=Number.isFinite(game)?game:1;
       stop();
       loadFromPDNText(pdn, plyToJump, gameIndex);
-      /* score mis à jour via setGame() */
     }
     if (e.data.type==='OPL_GOTO'){
       const ply=parseInt(e.data.ply,10);
@@ -1064,3 +1236,7 @@
 </script>
 </body>
 </html>
+
+
+
+
