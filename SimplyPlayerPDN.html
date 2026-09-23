@@ -1506,51 +1506,55 @@
   );
 
 
-  // ------------------ SNAP size ------------------
+// ------------------ SNAP size ------------------
 
-  function snapBoardSize(){
+function snapBoardSize(){
 
-    const max=480;
+  const max = 440;
 
+  const cw =
+    Math.max(
+      document.documentElement.clientWidth || 0,
+      document.body
+        ? (document.body.clientWidth || 0)
+        : 0
+    );
 
-    const cw =
-      Math.max(
+  /*
+    Sur PC :
+    maximum 440 px.
 
-        document.documentElement.clientWidth || 0,
+    Sur smartphone :
+    on conserve 30 px de marge afin
+    que les 10 colonnes restent visibles.
+  */
 
-        document.body
-          ? (
-              document.body.clientWidth ||
-              0
-            )
-          : 0
-      );
+  const desired =
+    Math.min(
+      cw - 30,
+      max
+    );
 
+  /*
+    Arrondi par tranche de 10 px
+    pour les 10 colonnes du damier.
+  */
 
-    const desired =
-      Math.min(
-        cw * 0.92,
-        max
-      );
+  const snapped =
+    Math.max(
+      300,
+      Math.floor(
+        desired / 10
+      ) * 10
+    );
 
-
-    const snapped =
-      Math.max(
-        300,
-        Math.floor(
-          desired / 10
-        ) * 10
-      );
-
-
-    document.documentElement
-      .style
-      .setProperty(
-        '--w',
-        snapped + 'px'
-      );
-  }
-
+  document.documentElement
+    .style
+    .setProperty(
+      '--w',
+      snapped + 'px'
+    );
+}
 
   // ------------------ Init ------------------
 
