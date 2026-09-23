@@ -37,11 +37,13 @@
       align-items:center;
       justify-content:center;
     }
+
     .topbar label{
       font-size:13px;
       color:#3b2a16;
       user-select:none;
     }
+
     select{
       flex:1;
       min-width:0;
@@ -63,6 +65,7 @@
       user-select:none;
       margin-top:-4px;
     }
+
     .score:empty{ display:none; }
 
     .board{
@@ -78,6 +81,7 @@
       box-shadow:0 8px 30px rgba(0,0,0,.18);
       background:#000;
     }
+
     .sq{
       position:relative;
       display:flex;
@@ -86,20 +90,22 @@
       min-width:0;
       min-height:0;
     }
+
     .light{background:var(--light)}
     .dark{background:var(--dark)}
 
     /* ===== NUMEROTATION TOUJOURS VISIBLE ===== */
     .num{
       position:absolute;
-      top:3px; left:5px;
+      top:3px;
+      left:5px;
       font-size:12px;
       font-weight:800;
       opacity:.95;
       color:#000;
       user-select:none;
       line-height:1;
-      z-index:5;               /* AU-DESSUS des pions */
+      z-index:5;
       pointer-events:none;
       text-shadow:
         -1px 0 rgba(255,255,255,.90),
@@ -108,6 +114,7 @@
          0  1px rgba(255,255,255,.90),
          0  0 2px rgba(0,0,0,.25);
     }
+
     .dark .num{
       color:#fff;
       opacity:.95;
@@ -126,11 +133,14 @@
       display:flex;
       align-items:center;
       justify-content:center;
-      box-shadow: inset 0 3px 0 rgba(255,255,255,.18), 0 6px 12px rgba(0,0,0,.30);
+      box-shadow:
+        inset 0 3px 0 rgba(255,255,255,.18),
+        0 6px 12px rgba(0,0,0,.30);
       border:1px solid rgba(0,0,0,.30);
       position:relative;
-      z-index:2;               /* SOUS les numéros */
+      z-index:2;
     }
+
     .w{background:#f6f1e8}
     .b{background:#1a1a1a}
 
@@ -141,7 +151,11 @@
       color:rgba(255,255,255,.85);
       text-shadow:0 1px 0 rgba(0,0,0,.6);
     }
-    .w.king::after{color:rgba(0,0,0,.75); text-shadow:none}
+
+    .w.king::after{
+      color:rgba(0,0,0,.75);
+      text-shadow:none;
+    }
 
     .bar{
       display:flex;
@@ -153,6 +167,7 @@
       border-radius:10px;
       padding:8px;
     }
+
     button{
       padding:8px 12px;
       border-radius:10px;
@@ -163,7 +178,11 @@
       min-width:44px;
       font-size:14px;
     }
-    button:disabled{opacity:.55; cursor:not-allowed}
+
+    button:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+    }
 
     .info{
       flex:1;
@@ -190,7 +209,9 @@
 </head>
 
 <body>
+
   <div class="wrap">
+
     <div class="topbar">
       <label for="gameSel">Partie</label>
       <select id="gameSel" aria-label="Choisir une partie">
@@ -205,19 +226,22 @@
 
     <div class="bar">
       <button id="first" title="Début">⏮</button>
-      <button id="prev"  title="Coup précédent">⟵</button>
-      <button id="play"  title="Lecture / Pause">▶︎</button>
-      <button id="next"  title="Coup suivant">⟶</button>
-      <button id="last"  title="Fin">⏭</button>
+      <button id="prev" title="Coup précédent">⟵</button>
+      <button id="play" title="Lecture / Pause">▶︎</button>
+      <button id="next" title="Coup suivant">⟶</button>
+      <button id="last" title="Fin">⏭</button>
       <div id="info" class="info">Chargement…</div>
     </div>
 
     <div id="msg" class="msg"></div>
+
   </div>
 
 <script>
 (() => {
-  // ------------------ Helpers cases 1..50 <-> (r,c) sur cases noires 10x10 ------------------
+
+  // ------------------ Helpers cases 1..50 <-> (r,c) ------------------
+
   function rcFromN(n){
     const i = n - 1;
     const r = Math.floor(i / 5);
@@ -225,485 +249,1470 @@
     const c = (r % 2 === 0) ? (1 + 2*k) : (0 + 2*k);
     return [r,c];
   }
+
   function nFromRC(r,c){
     if ((r+c)%2===0) return null;
     const k = (r%2===0) ? (c-1)/2 : c/2;
     if (!Number.isInteger(k) || k<0 || k>4) return null;
     return r*5 + k + 1;
   }
-  function inside(r,c){ return r>=0 && r<10 && c>=0 && c<10; }
+
+  function inside(r,c){
+    return r>=0 && r<10 && c>=0 && c<10;
+  }
+
 
   // ------------------ Board model ------------------
+
   const pieces = new Map();
 
   function resetInitial(){
     pieces.clear();
-    for (let n=31;n<=50;n++) pieces.set(n,{color:'w',king:false}); // blancs en bas
-    for (let n=1;n<=20;n++)  pieces.set(n,{color:'b',king:false}); // noirs en haut
+
+    for (let n=31;n<=50;n++)
+      pieces.set(n,{color:'w',king:false});
+
+    for (let n=1;n<=20;n++)
+      pieces.set(n,{color:'b',king:false});
   }
+
 
   function promoteIfNeeded(n){
     const p = pieces.get(n);
+
     if (!p || p.king) return;
+
     const [r] = rcFromN(n);
-    if (p.color==='w' && r===0) p.king=true;
-    if (p.color==='b' && r===9) p.king=true;
+
+    if (p.color==='w' && r===0)
+      p.king=true;
+
+    if (p.color==='b' && r===9)
+      p.king=true;
   }
 
+
   function renderBoard(){
+
     const board = document.getElementById('board');
+
     board.innerHTML = '';
+
     for (let r=0;r<10;r++){
+
       for (let c=0;c<10;c++){
+
         const sq = document.createElement('div');
+
         const dark = (r+c)%2===1;
-        sq.className = 'sq ' + (dark ? 'dark' : 'light');
+
+        sq.className =
+          'sq ' + (dark ? 'dark' : 'light');
+
 
         if (dark){
+
           const n = nFromRC(r,c);
 
-          const num = document.createElement('div');
+          const num =
+            document.createElement('div');
+
           num.className='num';
+
           num.textContent = n;
+
           sq.appendChild(num);
 
+
           const p = pieces.get(n);
+
           if (p){
-            const d = document.createElement('div');
-            d.className = 'piece ' + p.color + (p.king?' king':'');
+
+            const d =
+              document.createElement('div');
+
+            d.className =
+              'piece ' +
+              p.color +
+              (p.king?' king':'');
+
             sq.appendChild(d);
           }
         }
+
         board.appendChild(sq);
       }
     }
   }
 
+
   // ------------------ PDN parsing ------------------
+
   function splitGames(pdnText){
-    const txt = pdnText.replace(/\r\n/g, '\n');
+
+    const txt =
+      pdnText.replace(/\r\n/g, '\n');
+
     const idx = [];
-    const re = /^\s*\[Event\s+/gmi;
+
+    const re =
+      /^\s*\[Event\s+/gmi;
+
     let m;
-    while ((m = re.exec(txt)) !== null) idx.push(m.index);
-    if (idx.length===0) return [txt];
+
+    while ((m = re.exec(txt)) !== null)
+      idx.push(m.index);
+
+    if (idx.length===0)
+      return [txt];
+
 
     const games = [];
+
     for (let i=0;i<idx.length;i++){
+
       const start = idx[i];
-      const end = (i+1<idx.length) ? idx[i+1] : txt.length;
-      games.push(txt.slice(start,end).trim());
+
+      const end =
+        (i+1<idx.length)
+          ? idx[i+1]
+          : txt.length;
+
+      games.push(
+        txt.slice(start,end).trim()
+      );
     }
+
     return games;
   }
 
+
   function getTag(gameText, name){
-    const re = new RegExp('^\\s*\\['+name+'\\s+"([^"]*)"\\]\\s*$', 'mi');
-    const m = gameText.match(re);
+
+    const re =
+      new RegExp(
+        '^\\s*\\['+
+        name+
+        '\\s+"([^"]*)"\\]\\s*$',
+        'mi'
+      );
+
+    const m =
+      gameText.match(re);
+
     return m ? m[1] : '';
   }
 
+
   function extractMovesSection(gameText){
-    let body = gameText.replace(/^\s*\[[^\]]+\]\s*$/gmi, '');
-    body = body.replace(/\{[^}]*\}/g, ' ');
-    body = body.replace(/;[^\n]*$/gm, ' ');
-    body = body.replace(/\b(1-0|0-1|1\/2-1\/2|\*)\b/g, ' ');
+
+    let body =
+      gameText.replace(
+        /^\s*\[[^\]]+\]\s*$/gmi,
+        ''
+      );
+
+    body =
+      body.replace(
+        /\{[^}]*\}/g,
+        ' '
+      );
+
+    body =
+      body.replace(
+        /;[^\n]*$/gm,
+        ' '
+      );
+
+    body =
+      body.replace(
+        /\b(1-0|0-1|1\/2-1\/2|\*)\b/g,
+        ' '
+      );
+
     return body;
   }
 
+
   function tokenizeMoves(body){
-    body = body.replace(/\b\d+\s*\.(\.\.)?/g, ' ');
-    body = body.replace(/\s+/g, ' ').trim();
-    if (!body) return [];
-    const raw = body.split(' ');
+
+    body =
+      body.replace(
+        /\b\d+\s*\.(\.\.)?/g,
+        ' '
+      );
+
+    body =
+      body.replace(
+        /\s+/g,
+        ' '
+      ).trim();
+
+    if (!body)
+      return [];
+
+    const raw =
+      body.split(' ');
+
     const tokens = [];
+
     for (const t of raw){
+
       const u = t.trim();
-      if (!u) continue;
-      if (/^\$?\d+$/.test(u)) continue;
+
+      if (!u)
+        continue;
+
+      if (/^\$?\d+$/.test(u))
+        continue;
+
       tokens.push(u);
     }
+
     return tokens;
   }
 
+
   function parseMoveToken(tok){
-    const isCap = tok.includes('x') || tok.includes('X');
-    const sep = isCap ? /x|X/ : /-/;
-    const parts = tok.split(sep).map(s=>parseInt(s,10)).filter(n=>Number.isFinite(n));
-    if (parts.length<2) return null;
-    return { capture:isCap, path:parts };
+
+    const isCap =
+      tok.includes('x') ||
+      tok.includes('X');
+
+    const sep =
+      isCap
+        ? /x|X/
+        : /-/;
+
+    const parts =
+      tok
+        .split(sep)
+        .map(s=>parseInt(s,10))
+        .filter(n=>Number.isFinite(n));
+
+    if (parts.length<2)
+      return null;
+
+    return {
+      capture:isCap,
+      path:parts
+    };
   }
 
-  // ------------------ Capture path reconstruction (when PDN gives only A x B) ------------------
+
+  // ------------------ Capture path reconstruction ------------------
+
   function clonePiecesMap(src){
+
     const m = new Map();
-    for (const [k,v] of src.entries()) m.set(k, {color:v.color, king:!!v.king});
+
+    for (const [k,v] of src.entries())
+      m.set(
+        k,
+        {
+          color:v.color,
+          king:!!v.king
+        }
+      );
+
     return m;
   }
 
-  function opponent(color){ return color === 'w' ? 'b' : 'w'; }
 
-  function findUniqueCapturePath(from, to, side, isKing){
-    const startMap = clonePiecesMap(pieces);
-    const opp = opponent(side);
+  function opponent(color){
+
+    return color === 'w'
+      ? 'b'
+      : 'w';
+  }
+
+
+  function findUniqueCapturePath(
+    from,
+    to,
+    side,
+    isKing
+  ){
+
+    const startMap =
+      clonePiecesMap(pieces);
+
+    const opp =
+      opponent(side);
+
     const results = [];
 
+
     function pushResult(path){
-      results.push(path.slice());
+
+      results.push(
+        path.slice()
+      );
     }
 
-    function manCapturesFrom(pos, map){
-      const [r,c] = rcFromN(pos);
-      const dirs = [[-1,-1],[-1,1],[1,-1],[1,1]];
+
+    function manCapturesFrom(
+      pos,
+      map
+    ){
+
+      const [r,c] =
+        rcFromN(pos);
+
+      const dirs = [
+        [-1,-1],
+        [-1,1],
+        [1,-1],
+        [1,1]
+      ];
+
       const out = [];
+
+
       for (const [dr,dc] of dirs){
-        const r1=r+dr, c1=c+dc;
-        const r2=r+2*dr, c2=c+2*dc;
-        if (!inside(r2,c2)) continue;
-        const mid = nFromRC(r1,c1);
-        const land = nFromRC(r2,c2);
-        if (!mid || !land) continue;
-        const mp = map.get(mid);
-        if (!mp || mp.color !== opp) continue;
-        if (map.has(land)) continue;
-        out.push({ land, cap: mid });
+
+        const r1=r+dr;
+        const c1=c+dc;
+
+        const r2=r+2*dr;
+        const c2=c+2*dc;
+
+        if (!inside(r2,c2))
+          continue;
+
+        const mid =
+          nFromRC(r1,c1);
+
+        const land =
+          nFromRC(r2,c2);
+
+        if (!mid || !land)
+          continue;
+
+        const mp =
+          map.get(mid);
+
+        if (!mp ||
+            mp.color !== opp)
+          continue;
+
+        if (map.has(land))
+          continue;
+
+        out.push({
+          land,
+          cap:mid
+        });
       }
+
       return out;
     }
 
-    function kingCapturesFrom(pos, map){
-      const [r,c] = rcFromN(pos);
-      const dirs = [[-1,-1],[-1,1],[1,-1],[1,1]];
+
+    function kingCapturesFrom(
+      pos,
+      map
+    ){
+
+      const [r,c] =
+        rcFromN(pos);
+
+      const dirs = [
+        [-1,-1],
+        [-1,1],
+        [1,-1],
+        [1,1]
+      ];
+
       const out = [];
+
+
       for (const [dr,dc] of dirs){
-        let rr=r+dr, cc=c+dc;
-        let firstPieceN = null;
+
+        let rr=r+dr;
+        let cc=c+dc;
+
+        let firstPieceN=null;
+
+
         while (inside(rr,cc)){
-          const nn = nFromRC(rr,cc);
-          if (!nn){ rr+=dr; cc+=dc; continue; } // case blanche
+
+          const nn =
+            nFromRC(rr,cc);
+
+          if (!nn){
+
+            rr+=dr;
+            cc+=dc;
+
+            continue;
+          }
+
           if (map.has(nn)){
-            firstPieceN = nn;
+
+            firstPieceN=nn;
+
             break;
           }
-          rr+=dr; cc+=dc;
-        }
-        if (!firstPieceN) continue;
-        const fp = map.get(firstPieceN);
-        if (!fp || fp.color !== opp) continue;
 
-        rr += dr; cc += dc;
+          rr+=dr;
+          cc+=dc;
+        }
+
+
+        if (!firstPieceN)
+          continue;
+
+
+        const fp =
+          map.get(firstPieceN);
+
+        if (!fp ||
+            fp.color !== opp)
+          continue;
+
+
+        rr+=dr;
+        cc+=dc;
+
+
         while (inside(rr,cc)){
-          const nn = nFromRC(rr,cc);
-          if (!nn){ rr+=dr; cc+=dc; continue; }
-          if (map.has(nn)) break; // obstacle
-          out.push({ land: nn, cap: firstPieceN });
-          rr+=dr; cc+=dc;
+
+          const nn =
+            nFromRC(rr,cc);
+
+          if (!nn){
+
+            rr+=dr;
+            cc+=dc;
+
+            continue;
+          }
+
+          if (map.has(nn))
+            break;
+
+          out.push({
+            land:nn,
+            cap:firstPieceN
+          });
+
+          rr+=dr;
+          cc+=dc;
         }
       }
+
       return out;
     }
 
-    function dfs(current, map, path){
-      if (results.length > 1) return;
-      if (current === to && path.length > 1){
+
+    function dfs(
+      current,
+      map,
+      path
+    ){
+
+      if (results.length > 1)
+        return;
+
+
+      if (
+        current === to &&
+        path.length > 1
+      ){
+
         pushResult(path);
+
         return;
       }
 
-      const nexts = isKing ? kingCapturesFrom(current, map) : manCapturesFrom(current, map);
-      if (nexts.length === 0) return;
+
+      const nexts =
+        isKing
+          ? kingCapturesFrom(
+              current,
+              map
+            )
+          : manCapturesFrom(
+              current,
+              map
+            );
+
+
+      if (nexts.length === 0)
+        return;
+
 
       for (const mv of nexts){
-        const map2 = clonePiecesMap(map);
-        const piece = map2.get(current);
-        if (!piece) continue;
+
+        const map2 =
+          clonePiecesMap(map);
+
+        const piece =
+          map2.get(current);
+
+        if (!piece)
+          continue;
+
 
         map2.delete(current);
+
         map2.delete(mv.cap);
-        map2.set(mv.land, piece);
 
-        const path2 = path.slice();
-        path2.push(mv.land);
-        dfs(mv.land, map2, path2);
+        map2.set(
+          mv.land,
+          piece
+        );
 
-        if (results.length > 1) return;
+
+        const path2 =
+          path.slice();
+
+        path2.push(
+          mv.land
+        );
+
+
+        dfs(
+          mv.land,
+          map2,
+          path2
+        );
+
+
+        if (results.length > 1)
+          return;
       }
     }
 
-    const p0 = startMap.get(from);
-    if (!p0 || p0.color !== side) return null;
 
-    dfs(from, startMap, [from]);
+    const p0 =
+      startMap.get(from);
 
-    if (results.length === 1) return results[0];
+    if (!p0 ||
+        p0.color !== side)
+      return null;
+
+
+    dfs(
+      from,
+      startMap,
+      [from]
+    );
+
+
+    if (results.length === 1)
+      return results[0];
+
     return null;
   }
 
-  // ------------------ Apply moves ------------------
-  function removeCapturedBetween(a,b,color){
-    const [r1,c1] = rcFromN(a);
-    const [r2,c2] = rcFromN(b);
-    const dr = Math.sign(r2-r1);
-    const dc = Math.sign(c2-c1);
-    if (dr===0 || dc===0) return;
 
-    let r=r1+dr, c=c1+dc;
-    while (r!==r2 && c!==c2){
-      const n = nFromRC(r,c);
-      if (n && pieces.has(n)){
-        const p = pieces.get(n);
+  // ------------------ Apply moves ------------------
+
+  function removeCapturedBetween(
+    a,
+    b,
+    color
+  ){
+
+    const [r1,c1] =
+      rcFromN(a);
+
+    const [r2,c2] =
+      rcFromN(b);
+
+    const dr =
+      Math.sign(r2-r1);
+
+    const dc =
+      Math.sign(c2-c1);
+
+    if (dr===0 || dc===0)
+      return;
+
+
+    let r=r1+dr;
+    let c=c1+dc;
+
+
+    while (
+      r!==r2 &&
+      c!==c2
+    ){
+
+      const n =
+        nFromRC(r,c);
+
+      if (
+        n &&
+        pieces.has(n)
+      ){
+
+        const p =
+          pieces.get(n);
+
         if (p.color !== color){
+
           pieces.delete(n);
+
           return;
         }
       }
-      r+=dr; c+=dc;
+
+      r+=dr;
+      c+=dc;
     }
   }
 
-  function applyOne(moveObj, side){
-    let {capture, path} = moveObj;
 
-    const from = path[0];
-    const piece = pieces.get(from);
-    if (!piece || piece.color !== side) return false;
+  function applyOne(
+    moveObj,
+    side
+  ){
 
-    if (capture && path.length === 2){
-      const to = path[1];
-      const full = findUniqueCapturePath(from, to, side, !!piece.king);
-      if (full) path = full;
+    let {
+      capture,
+      path
+    } = moveObj;
+
+
+    const from =
+      path[0];
+
+    const piece =
+      pieces.get(from);
+
+
+    if (
+      !piece ||
+      piece.color !== side
+    )
+      return false;
+
+
+    if (
+      capture &&
+      path.length === 2
+    ){
+
+      const to =
+        path[1];
+
+      const full =
+        findUniqueCapturePath(
+          from,
+          to,
+          side,
+          !!piece.king
+        );
+
+      if (full)
+        path = full;
     }
+
 
     pieces.delete(from);
 
+
     if (capture){
-      for (let i=0;i<path.length-1;i++){
-        removeCapturedBetween(path[i], path[i+1], side);
+
+      for (
+        let i=0;
+        i<path.length-1;
+        i++
+      ){
+
+        removeCapturedBetween(
+          path[i],
+          path[i+1],
+          side
+        );
       }
     }
 
-    const to = path[path.length-1];
-    pieces.set(to, piece);
+
+    const to =
+      path[path.length-1];
+
+    pieces.set(
+      to,
+      piece
+    );
+
     promoteIfNeeded(to);
+
     return true;
   }
 
+
   // ------------------ UI / Controls ------------------
-  const firstBtn = document.getElementById('first');
-  const prevBtn  = document.getElementById('prev');
-  const playBtn  = document.getElementById('play');
-  const nextBtn  = document.getElementById('next');
-  const lastBtn  = document.getElementById('last');
-  const info     = document.getElementById('info');
-  const msg      = document.getElementById('msg');
-  const gameSel  = document.getElementById('gameSel');
-  const scoreEl  = document.getElementById('score');
+
+  const firstBtn =
+    document.getElementById('first');
+
+  const prevBtn =
+    document.getElementById('prev');
+
+  const playBtn =
+    document.getElementById('play');
+
+  const nextBtn =
+    document.getElementById('next');
+
+  const lastBtn =
+    document.getElementById('last');
+
+  const info =
+    document.getElementById('info');
+
+  const msg =
+    document.getElementById('msg');
+
+  const gameSel =
+    document.getElementById('gameSel');
+
+  const scoreEl =
+    document.getElementById('score');
+
 
   let timer = null;
+
   let moves = [];
+
   let plyIndex = 0;
+
   let games = [];
+
   let currentGameIndex = 0;
 
+  /* ===== NOUVEAU =====
+     false = comportement normal
+     true  = ouverture à la dernière position
+  */
+  let openAtEnd = false;
+
+
   function stop(){
-    if (timer){ clearInterval(timer); timer=null; }
-    playBtn.textContent = '▶︎';
+
+    if (timer){
+
+      clearInterval(timer);
+
+      timer=null;
+    }
+
+    playBtn.textContent='▶︎';
   }
+
 
   function updateUI(meta=''){
-    firstBtn.disabled = (plyIndex===0);
-    prevBtn.disabled  = (plyIndex===0);
-    nextBtn.disabled  = (plyIndex===moves.length);
-    lastBtn.disabled  = (plyIndex===moves.length);
-    info.textContent  = `Coup ${plyIndex}/${moves.length}` + (meta ? ` — ${meta}` : '');
+
+    firstBtn.disabled =
+      (plyIndex===0);
+
+    prevBtn.disabled =
+      (plyIndex===0);
+
+    nextBtn.disabled =
+      (plyIndex===moves.length);
+
+    lastBtn.disabled =
+      (plyIndex===moves.length);
+
+    info.textContent =
+      `Coup ${plyIndex}/${moves.length}` +
+      (meta ? ` — ${meta}` : '');
   }
+
 
   function rebuildTo(index){
+
     resetInitial();
-    for (let i=0;i<index;i++){
-      applyOne(moves[i], moves[i].side);
+
+    for (
+      let i=0;
+      i<index;
+      i++
+    ){
+
+      applyOne(
+        moves[i],
+        moves[i].side
+      );
     }
-    plyIndex = index;
+
+    plyIndex=index;
+
     renderBoard();
-    updateUI(shortMetaForCurrent());
+
+    updateUI(
+      shortMetaForCurrent()
+    );
   }
+
 
   function stepNext(){
-    if (plyIndex>=moves.length){ stop(); return; }
-    applyOne(moves[plyIndex], moves[plyIndex].side);
+
+    if (
+      plyIndex>=moves.length
+    ){
+
+      stop();
+
+      return;
+    }
+
+
+    applyOne(
+      moves[plyIndex],
+      moves[plyIndex].side
+    );
+
     plyIndex++;
+
     renderBoard();
-    updateUI(shortMetaForCurrent());
+
+    updateUI(
+      shortMetaForCurrent()
+    );
   }
+
 
   function stepPrev(){
-    if (plyIndex<=0) return;
-    rebuildTo(plyIndex-1);
+
+    if (plyIndex<=0)
+      return;
+
+    rebuildTo(
+      plyIndex-1
+    );
   }
 
-  function goFirst(){ stop(); rebuildTo(0); }
-  function goLast(){ stop(); rebuildTo(moves.length); }
 
-  firstBtn.addEventListener('click', goFirst);
-  lastBtn.addEventListener('click',  goLast);
-  prevBtn.addEventListener('click',  () => { stop(); stepPrev(); });
-  nextBtn.addEventListener('click',  () => { stop(); stepNext(); });
+  function goFirst(){
 
-  playBtn.addEventListener('click', () => {
-    if (timer){ stop(); return; }
-    timer = setInterval(() => {
-      if (plyIndex>=moves.length){ stop(); return; }
+    stop();
+
+    rebuildTo(0);
+  }
+
+
+  function goLast(){
+
+    stop();
+
+    rebuildTo(
+      moves.length
+    );
+  }
+
+
+  firstBtn.addEventListener(
+    'click',
+    goFirst
+  );
+
+  lastBtn.addEventListener(
+    'click',
+    goLast
+  );
+
+  prevBtn.addEventListener(
+    'click',
+    () => {
+
+      stop();
+
+      stepPrev();
+    }
+  );
+
+  nextBtn.addEventListener(
+    'click',
+    () => {
+
+      stop();
+
       stepNext();
-    }, 650);
-    playBtn.textContent = '⏸';
-  });
+    }
+  );
 
-  // ------------------ Labels (SANS score dans le menu) ------------------
-  function labelGame(i, gameText){
-    const white = (getTag(gameText, 'White') || '').trim();
-    const black = (getTag(gameText, 'Black') || '').trim();
-    const both  = (white && black) ? (white + ' / ' + black) : (white || black || 'Partie');
-    return `${i+1} — ${both}`;     // ✅ pas de Result ici
+
+  playBtn.addEventListener(
+    'click',
+    () => {
+
+      if (timer){
+
+        stop();
+
+        return;
+      }
+
+
+      timer =
+        setInterval(
+          () => {
+
+            if (
+              plyIndex>=moves.length
+            ){
+
+              stop();
+
+              return;
+            }
+
+            stepNext();
+
+          },
+          650
+        );
+
+      playBtn.textContent='⏸';
+    }
+  );
+
+
+  // ------------------ Labels ------------------
+
+  function labelGame(
+    i,
+    gameText
+  ){
+
+    const white =
+      (
+        getTag(
+          gameText,
+          'White'
+        ) || ''
+      ).trim();
+
+    const black =
+      (
+        getTag(
+          gameText,
+          'Black'
+        ) || ''
+      ).trim();
+
+
+    const both =
+      (white && black)
+        ? (
+            white +
+            ' / ' +
+            black
+          )
+        : (
+            white ||
+            black ||
+            'Partie'
+          );
+
+
+    return `${i+1} — ${both}`;
   }
+
 
   function shortEvent(ev){
-    if (!ev) return '';
-    ev = ev.replace(/\s+/g,' ').trim();
-    return ev.split(',')[0].split(' - ')[0].trim();
+
+    if (!ev)
+      return '';
+
+    ev =
+      ev
+        .replace(/\s+/g,' ')
+        .trim();
+
+    return ev
+      .split(',')[0]
+      .split(' - ')[0]
+      .trim();
   }
 
+
   function shortMetaForCurrent(){
-    if (!games[currentGameIndex]) return '';
-    const ev = shortEvent(getTag(games[currentGameIndex], 'Event'));
+
+    if (!games[currentGameIndex])
+      return '';
+
+    const ev =
+      shortEvent(
+        getTag(
+          games[currentGameIndex],
+          'Event'
+        )
+      );
+
     return ev || '';
   }
 
+
   function updateScoreLine(){
-    if (!games[currentGameIndex] || !scoreEl) return;
-    const r = (getTag(games[currentGameIndex], 'Result') || '').trim();
-    scoreEl.textContent = (r && r !== '*') ? ('Score : ' + r) : '';
+
+    if (
+      !games[currentGameIndex] ||
+      !scoreEl
+    )
+      return;
+
+
+    const r =
+      (
+        getTag(
+          games[currentGameIndex],
+          'Result'
+        ) || ''
+      ).trim();
+
+
+    scoreEl.textContent =
+      (
+        r &&
+        r !== '*'
+      )
+        ? ('Score : ' + r)
+        : '';
   }
 
+
   // ------------------ Build moves for a game ------------------
-  function buildMovesFromGame(gameText){
-    const body = extractMovesSection(gameText);
-    const tokens = tokenizeMoves(body);
+
+  function buildMovesFromGame(
+    gameText
+  ){
+
+    const body =
+      extractMovesSection(
+        gameText
+      );
+
+    const tokens =
+      tokenizeMoves(body);
 
     const parsed = [];
-    let side = 'w';
+
+    let side='w';
+
+
     for (const tok of tokens){
-      const mo = parseMoveToken(tok);
-      if (!mo) continue;
-      parsed.push({ ...mo, raw:tok, side });
-      side = (side==='w') ? 'b' : 'w';
+
+      const mo =
+        parseMoveToken(tok);
+
+      if (!mo)
+        continue;
+
+
+      parsed.push({
+        ...mo,
+        raw:tok,
+        side
+      });
+
+
+      side =
+        (side==='w')
+          ? 'b'
+          : 'w';
     }
+
     return parsed;
   }
 
-  // ------------------ Fetch (avec fallback proxy CORS) ------------------
+
+  // ------------------ Fetch ------------------
+
   async function fetchTextSmart(url){
+
     try{
-      const r = await fetch(url, { cache:'no-store' });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
+
+      const r =
+        await fetch(
+          url,
+          {
+            cache:'no-store'
+          }
+        );
+
+      if (!r.ok)
+        throw new Error(
+          'HTTP ' +
+          r.status
+        );
+
       return await r.text();
+
     } catch(_e){
-      const prox = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-      const r2 = await fetch(prox, { cache:'no-store' });
-      if (!r2.ok) throw new Error('HTTP ' + r2.status);
+
+      const prox =
+        'https://api.allorigins.win/raw?url=' +
+        encodeURIComponent(url);
+
+
+      const r2 =
+        await fetch(
+          prox,
+          {
+            cache:'no-store'
+          }
+        );
+
+
+      if (!r2.ok)
+        throw new Error(
+          'HTTP ' +
+          r2.status
+        );
+
+
       return await r2.text();
     }
   }
 
+
   // ------------------ URL resolver ------------------
-  function resolvePDNUrl(pdnParam){
-    if (/^https?:\/\//i.test(pdnParam)) return pdnParam;
-    return new URL(pdnParam, location.href).href;
+
+  function resolvePDNUrl(
+    pdnParam
+  ){
+
+    if (
+      /^https?:\/\//i.test(
+        pdnParam
+      )
+    )
+      return pdnParam;
+
+
+    return new URL(
+      pdnParam,
+      location.href
+    ).href;
   }
+
 
   // ------------------ Game selection ------------------
+
   function fillSelect(){
-    gameSel.innerHTML = '';
-    for (let i=0;i<games.length;i++){
-      const opt = document.createElement('option');
-      opt.value = String(i);
-      opt.textContent = labelGame(i, games[i]);
+
+    gameSel.innerHTML='';
+
+
+    for (
+      let i=0;
+      i<games.length;
+      i++
+    ){
+
+      const opt =
+        document.createElement(
+          'option'
+        );
+
+      opt.value =
+        String(i);
+
+      opt.textContent =
+        labelGame(
+          i,
+          games[i]
+        );
+
       gameSel.appendChild(opt);
     }
-    gameSel.value = String(currentGameIndex);
+
+
+    gameSel.value =
+      String(
+        currentGameIndex
+      );
   }
+
 
   function loadGame(index){
+
     stop();
-    currentGameIndex = Math.max(0, Math.min(index, games.length-1));
-    moves = buildMovesFromGame(games[currentGameIndex]);
-    rebuildTo(0);
+
+
+    currentGameIndex =
+      Math.max(
+        0,
+        Math.min(
+          index,
+          games.length-1
+        )
+      );
+
+
+    moves =
+      buildMovesFromGame(
+        games[currentGameIndex]
+      );
+
+
+    /*
+      ===== MODIFICATION end=1 =====
+
+      Par défaut :
+          rebuildTo(0)
+
+      Avec &end=1 :
+          rebuildTo(moves.length)
+    */
+
+    if (openAtEnd){
+
+      rebuildTo(
+        moves.length
+      );
+
+    } else {
+
+      rebuildTo(0);
+    }
+
+
     fillSelect();
-    updateScoreLine();  // ✅ score uniquement ici
-    msg.textContent = moves.length ? '' : 'PDN chargé, mais aucun coup détecté (format inattendu ?).';
+
+    updateScoreLine();
+
+
+    msg.textContent =
+      moves.length
+        ? ''
+        : 'PDN chargé, mais aucun coup détecté (format inattendu ?).';
   }
 
-  gameSel.addEventListener('change', () => {
-    const idx = parseInt(gameSel.value, 10);
-    if (Number.isFinite(idx)) loadGame(idx);
-  });
 
-  // ------------------ SNAP size (iframe-friendly) ------------------
-  function snapBoardSize() {
-    const max = 480;
-    const cw = Math.max(
-      document.documentElement.clientWidth || 0,
-      document.body ? (document.body.clientWidth || 0) : 0
-    );
-    const desired = Math.min(cw * 0.92, max);
-    const snapped = Math.max(300, Math.floor(desired / 10) * 10);
-    document.documentElement.style.setProperty('--w', snapped + 'px');
+  gameSel.addEventListener(
+    'change',
+    () => {
+
+      const idx =
+        parseInt(
+          gameSel.value,
+          10
+        );
+
+      if (
+        Number.isFinite(idx)
+      )
+        loadGame(idx);
+    }
+  );
+
+
+  // ------------------ SNAP size ------------------
+
+  function snapBoardSize(){
+
+    const max=480;
+
+
+    const cw =
+      Math.max(
+
+        document.documentElement.clientWidth || 0,
+
+        document.body
+          ? (
+              document.body.clientWidth ||
+              0
+            )
+          : 0
+      );
+
+
+    const desired =
+      Math.min(
+        cw * 0.92,
+        max
+      );
+
+
+    const snapped =
+      Math.max(
+        300,
+        Math.floor(
+          desired / 10
+        ) * 10
+      );
+
+
+    document.documentElement
+      .style
+      .setProperty(
+        '--w',
+        snapped + 'px'
+      );
   }
+
 
   // ------------------ Init ------------------
+
   async function init(){
+
     resetInitial();
+
     renderBoard();
 
-    snapBoardSize();
-    window.addEventListener('resize', snapBoardSize);
-    setTimeout(snapBoardSize, 0);
-    setTimeout(snapBoardSize, 200);
 
-    const params = new URLSearchParams(location.search);
-    const pdnParam = params.get('pdn');
-    const gParam = parseInt(params.get('g') || '1', 10);
-    const gIndex = Number.isFinite(gParam) ? Math.max(1, gParam) : 1;
+    snapBoardSize();
+
+    window.addEventListener(
+      'resize',
+      snapBoardSize
+    );
+
+    setTimeout(
+      snapBoardSize,
+      0
+    );
+
+    setTimeout(
+      snapBoardSize,
+      200
+    );
+
+
+    const params =
+      new URLSearchParams(
+        location.search
+      );
+
+
+    const pdnParam =
+      params.get('pdn');
+
+
+    const gParam =
+      parseInt(
+        params.get('g') || '1',
+        10
+      );
+
+
+    const gIndex =
+      Number.isFinite(gParam)
+        ? Math.max(
+            1,
+            gParam
+          )
+        : 1;
+
+
+    /*
+      ===== NOUVEAU =====
+
+      &end=1
+      &end=true
+      &end=yes
+
+      activent l'ouverture
+      à la dernière position.
+    */
+
+    const endParam =
+      (
+        params.get('end') ||
+        ''
+      )
+      .toLowerCase();
+
+
+    openAtEnd =
+      (
+        endParam === '1' ||
+        endParam === 'true' ||
+        endParam === 'yes'
+      );
+
 
     if (!pdnParam){
-      updateUI('Paramètre ?pdn= manquant');
-      msg.textContent = 'Ajoute ?pdn=URL_ou_chemin_du_fichier.pdn';
+
+      updateUI(
+        'Paramètre ?pdn= manquant'
+      );
+
+      msg.textContent =
+        'Ajoute ?pdn=URL_ou_chemin_du_fichier.pdn';
+
       return;
     }
 
-    const pdnUrl = resolvePDNUrl(pdnParam);
+
+    const pdnUrl =
+      resolvePDNUrl(
+        pdnParam
+      );
+
 
     try{
-      msg.textContent = '';
-      updateUI('Chargement…');
 
-      const text = await fetchTextSmart(pdnUrl);
-      games = splitGames(text);
+      msg.textContent='';
 
-      currentGameIndex = Math.min(gIndex-1, games.length-1);
-      if (currentGameIndex < 0) currentGameIndex = 0;
+      updateUI(
+        'Chargement…'
+      );
+
+
+      const text =
+        await fetchTextSmart(
+          pdnUrl
+        );
+
+
+      games =
+        splitGames(text);
+
+
+      currentGameIndex =
+        Math.min(
+          gIndex-1,
+          games.length-1
+        );
+
+
+      if (
+        currentGameIndex < 0
+      )
+        currentGameIndex=0;
+
 
       fillSelect();
-      loadGame(currentGameIndex);
 
-      updateUI(shortMetaForCurrent());
+      loadGame(
+        currentGameIndex
+      );
+
+
+      updateUI(
+        shortMetaForCurrent()
+      );
+
+
     } catch(e){
-      updateUI('Erreur de chargement');
-      msg.textContent = 'Impossible de charger le PDN : ' + e.message;
+
+      updateUI(
+        'Erreur de chargement'
+      );
+
+
+      msg.textContent =
+        'Impossible de charger le PDN : ' +
+        e.message;
     }
   }
 
+
   init();
+
 })();
 </script>
+
 </body>
 </html>
