@@ -471,114 +471,93 @@
   }
   function opponent(color){ return color==='w'?'b':'w'; }
 
-  function findUniqueCapturePath(from,to,side,isKing){
-    const startMap=clonePiecesMap(pieces);
-    const opp=opponent(side);
-    const results=[];
+  // Rafles internationales : les pièces prises restent sur le damier
+  // jusqu'à la fin du mouvement et ne peuvent être franchies deux fois.
+  function reconstructCapture(from, to, side, isKing, explicitPath) {
+    const initial = clonePiecesMap(pieces);
+    const enemy = opponent(side);
+    const dirs = [[-1,-1],[-1,1],[1,-1],[1,1]];
+    const candidates = [];
 
-    function manCaps(pos,map){
-      const [r,c]=rcFromN(pos);
-      const dirs=[[-1,-1],[-1,1],[1,-1],[1,1]];
-      const out=[];
-      for (const [dr,dc] of dirs){
-        const r1=r+dr,c1=c+dc,r2=r+2*dr,c2=c+2*dc;
-        if (!inside(r2,c2)) continue;
-        const mid=nFromRC(r1,c1), land=nFromRC(r2,c2);
-        if (!mid||!land) continue;
-        const mp=map.get(mid);
-        if (!mp||mp.color!==opp) continue;
-        if (map.has(land)) continue;
-        out.push({land,cap:mid});
-      }
-      return out;
-    }
-
-    function kingCaps(pos,map){
-      const [r,c]=rcFromN(pos);
-      const dirs=[[-1,-1],[-1,1],[1,-1],[1,1]];
-      const out=[];
-      for (const [dr,dc] of dirs){
-        let rr=r+dr, cc=c+dc, first=null;
-        while (inside(rr,cc)){
-          const nn=nFromRC(rr,cc);
-          if (!nn){ rr+=dr; cc+=dc; continue; }
-          if (map.has(nn)){ first=nn; break; }
-          rr+=dr; cc+=dc;
-        }
-        if (!first) continue;
-        const fp=map.get(first);
-        if (!fp||fp.color!==opp) continue;
-
-        rr+=dr; cc+=dc;
-        while (inside(rr,cc)){
-          const nn=nFromRC(rr,cc);
-          if (!nn){ rr+=dr; cc+=dc; continue; }
-          if (map.has(nn)) break;
-          out.push({land:nn, cap:first});
-          rr+=dr; cc+=dc;
+    function choices(pos, captured, king) {
+      const [r,c] = rcFromN(pos);
+      const out = [];
+      for (const [dr,dc] of dirs) {
+        if (!king) {
+          const mid=nFromRC(r+dr,c+dc);
+          const land=nFromRC(r+2*dr,c+2*dc);
+          if (!inside(r+2*dr,c+2*dc) || !mid || !land) continue;
+          const p=initial.get(mid);
+          if (p && p.color===enemy && !captured.has(mid)
+              && !initial.has(land) && land!==from)
+            out.push({land,cap:mid});
+        } else {
+          let rr=r+dr, cc=c+dc, target=null;
+          while (inside(rr,cc)) {
+            const n=nFromRC(rr,cc);
+            if (!n) { rr+=dr; cc+=dc; continue; }
+            // La case d'origine est libérée par la dame en déplacement.
+            if (n===from || n===pos) { rr+=dr; cc+=dc; continue; }
+            const p=initial.get(n);
+            if (p) {
+              if (target!==null || p.color!==enemy || captured.has(n)) break;
+              target=n;
+            } else if (target!==null) {
+              out.push({land:n,cap:target});
+            }
+            rr+=dr; cc+=dc;
+          }
         }
       }
       return out;
     }
 
-    function dfs(cur,map,path){
-      if (results.length>1) return;
-      if (cur===to && path.length>1){ results.push(path.slice()); return; }
-      const nexts=isKing?kingCaps(cur,map):manCaps(cur,map);
-      if (!nexts.length) return;
-      for (const mv of nexts){
-        const map2=clonePiecesMap(map);
-        const pc=map2.get(cur);
-        if (!pc) continue;
-        map2.delete(cur);
-        map2.delete(mv.cap);
-        map2.set(mv.land, pc);
-        const p2=path.slice(); p2.push(mv.land);
-        dfs(mv.land,map2,p2);
-        if (results.length>1) return;
+    function dfs(pos, captured, path) {
+      const next=choices(pos,captured,isKing);
+      if (!next.length) {
+        if (pos===to && captured.size &&
+            (!explicitPath || explicitPath.length===2 ||
+             explicitPath.join(',')===path.join(',')))
+          candidates.push({path:path.slice(), captured:[...captured]});
+        return;
+      }
+      for (const mv of next) {
+        if (explicitPath && explicitPath.length>2 &&
+            explicitPath[path.length]!==mv.land) continue;
+        const c2=new Set(captured);
+        c2.add(mv.cap);
+        dfs(mv.land,c2,[...path,mv.land]);
       }
     }
 
-    const p0=startMap.get(from);
-    if (!p0||p0.color!==side) return null;
-    dfs(from,startMap,[from]);
-    return results.length===1?results[0]:null;
-  }
-
-  function removeCapturedBetween(a,b,color){
-    const [r1,c1]=rcFromN(a), [r2,c2]=rcFromN(b);
-    const dr=Math.sign(r2-r1), dc=Math.sign(c2-c1);
-    if (!dr||!dc) return;
-    let r=r1+dr, c=c1+dc;
-    while (r!==r2 && c!==c2){
-      const n=nFromRC(r,c);
-      if (n && pieces.has(n)){
-        const p=pieces.get(n);
-        if (p.color!==color){ pieces.delete(n); return; }
-      }
-      r+=dr; c+=dc;
-    }
+    dfs(from,new Set(),[from]);
+    if (!candidates.length) return null;
+    // PDN abrégé : conserver les rafles ayant le plus grand nombre de prises.
+    const max=Math.max(...candidates.map(c=>c.captured.length));
+    const best=candidates.filter(c=>c.captured.length===max);
+    // Plusieurs parcours sont acceptables s'ils prennent les mêmes pièces.
+    const signature=c=>c.captured.slice().sort((x,y)=>x-y).join(',');
+    if (new Set(best.map(signature)).size!==1) return null;
+    return best[0];
   }
 
   function applyMove(moveObj){
-    let {capture,path,side}=moveObj;
-    const from=path[0];
+    const {capture,path,side}=moveObj;
+    const from=path[0], to=path[path.length-1];
     const piece=pieces.get(from);
     if (!piece || piece.color!==side) return false;
 
-    if (capture && path.length===2){
-      const to=path[1];
-      const full=findUniqueCapturePath(from,to,side,!!piece.king);
-      if (full) path=full;
-    }
-
-    pieces.delete(from);
-    if (capture){
-      for (let i=0;i<path.length-1;i++){
-        removeCapturedBetween(path[i],path[i+1],side);
+    if (capture) {
+      const result=reconstructCapture(from,to,side,!!piece.king,path);
+      if (!result) {
+        console.warn('Rafle non résolue :',moveObj.raw || path.join('x'));
+        return false;
       }
+      pieces.delete(from);
+      for (const n of result.captured) pieces.delete(n);
+    } else {
+      pieces.delete(from);
     }
-    const to=path[path.length-1];
     pieces.set(to,piece);
     promoteIfNeeded(to);
     return true;
@@ -1236,7 +1215,6 @@ function goLast(){
 </script>
 </body>
 </html>
-
 
 
 
